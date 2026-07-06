@@ -38,17 +38,7 @@
   <div class="notice">
     This project implements a dual-core pipelined RV32I processor with a snooping coherence bus and split instruction/data caches, fully verified with per-module and full-system testbenches. All source (RTL, testbenches, sim scripts, and test programs) lives in a private repo — <a href="https://github.com/AK17111/riscv-multicore-cpu" target="_blank" rel="noopener">github.com/AK17111/riscv-multicore-cpu</a>. This was completed as part of ECE 437 at Purdue, which requires the code stay private — happy to walk through it directly, just reach out.
     <br><br>
-    Below is the formatted final report (which got an A), plus the midterm comparison of the single-cycle vs. pipelined design. The core was verified against custom testbenches covering, among others:
-    <ul style="margin-top:10px;">
-      <li>Merge sort &amp; dual-threaded merge sort (main benchmark)</li>
-      <li>Fibonacci sequence</li>
-      <li>Linear search</li>
-      <li>Booth's encoding multiplication</li>
-      <li>Number of days between two dates</li>
-      <li>CRC checksum subroutine</li>
-      <li>MSI coherence transitions (3 dedicated tests) and dual-core LR/SC atomics</li>
-      <li>Every branch instruction, taken and not-taken, plus load/control hazard edge cases</li>
-    </ul>
+    
   </div>
 
   <h2>Overview</h2>
