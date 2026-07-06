@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RISC-V Multicore Pipelined CPU — Armaan Kanchan</title>
+<meta name="description" content="Design, verification, and synthesis of a 5-stage pipelined multicore RISC-V CPU with a cache hierarchy and MSI coherence protocol.">
+<link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="../../" class="brand" style="color:inherit;">AK</a>
+    <nav class="nav-links">
+      <a href="../../#education">Education</a>
+      <a href="../../#experience">Experience</a>
+      <a href="../" class="active">Projects</a>
+      <a href="../../#skills">Skills</a>
+      <a href="../../#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="article-header">
+  <div class="breadcrumb"><a href="../">Projects</a> / RISC-V Multicore Pipelined CPU</div>
+  <h1>RISC-V Multicore Pipelined CPU</h1>
+  <div class="subtitle">Design, verification, and synthesis of a 5-stage pipelined multicore RISC-V CPU with a cache hierarchy and MSI coherence protocol, on an Intel/Altera Cyclone IV FPGA (&gt;50 MHz)</div>
+  <div class="meta-row">
+    <span>Purdue University · ECE 437</span>
+    <span>Feb – May 2025</span>
+    <span>SystemVerilog · QuestaSim · Quartus</span>
+  </div>
+</div>
+
+<article class="article">
+
+  <div class="notice">
+    This project implements a dual-core pipelined RV32I processor with a snooping coherence bus and split instruction/data caches, fully verified with per-module and full-system testbenches. All source (RTL, testbenches, sim scripts, and test programs) lives in a private repo — <a href="https://github.com/AK17111/riscv-multicore-cpu" target="_blank" rel="noopener">github.com/AK17111/riscv-multicore-cpu</a>. This was completed as part of ECE 437 at Purdue, which requires the code stay private — happy to walk through it directly, just reach out.
+    <br><br>
+    Below is the formatted final report (which got an A), plus the midterm comparison of the single-cycle vs. pipelined design. The core was verified against custom testbenches covering, among others:
+    <ul style="margin-top:10px;">
+      <li>Merge sort &amp; dual-threaded merge sort (main benchmark)</li>
+      <li>Fibonacci sequence</li>
+      <li>Linear search</li>
+      <li>Booth's encoding multiplication</li>
+      <li>Number of days between two dates</li>
+      <li>CRC checksum subroutine</li>
+      <li>MSI coherence transitions (3 dedicated tests) and dual-core LR/SC atomics</li>
+      <li>Every branch instruction, taken and not-taken, plus load/control hazard edge cases</li>
+    </ul>
+  </div>
+
+  <h2>Overview</h2>
+  <p>
+    This report compares four processor variants built on the same RV32I subset: a single-cycle processor, a pipelined processor without caches, a pipelined processor with a two-level cache hierarchy, and a multicore processor with per-core caches and coherence. The goal is to measure how caching and parallelism each move the needle on performance, and specifically to find the memory-latency threshold at which caching starts to pay for itself.
+  </p>
+  <p>
+    All four designs run the same merge-sort benchmark. We measure execution time, average cycles-per-instruction (CPI), speedup relative to a baseline, and average instruction latency, and repeat the comparison across a sweep of simulated memory latencies (0, 2, 6, and 10 cycles) to see how each architecture degrades as memory gets slower.
+  </p>
+
+  <h2>Design</h2>
+
+  <h3>Single-cycle baseline</h3>
+  <p>
+    The starting point is a single-cycle RV32I datapath: PC logic, register file, ALU, and a single-cycle control unit that decodes and executes an entire instruction in one clock. It has no hazards to speak of (every instruction fully completes before the next begins) but pays for that simplicity with a long critical path and a low clock frequency.
+  </p>
+  <figure>
+    <img src="figs/fig0-singlecycle-block.png" alt="Single-cycle processor block diagram">
+    <figcaption>Single-cycle datapath — PC block, register file, ALU, and control, all resolving within one clock period.</figcaption>
+  </figure>
+
+  <h3>5-stage pipeline</h3>
+  <p>
+    The single-cycle datapath is split into five overlapping stages — Fetch, Decode, Execute, Memory, Writeback — connected by buffered pipeline latches (<code>F/D</code>, <code>D/E</code>, <code>E/M</code>, <code>M/W</code>). This lets multiple instructions be in flight simultaneously, trading a higher CPI (from stalls and hazards) for a substantially higher clock frequency. A forwarding unit resolves most data hazards by routing ALU/memory results back into the execute stage instead of waiting for the writeback stage, and a hazard unit stalls the pipeline on load-use hazards and flushes on mispredicted control flow. Branch resolution is accelerated with a branch predictor (BTB/BPT) to cut down on control-hazard penalties.
+  </p>
+  <figure>
+    <img src="figs/fig0b-pipelined-block.png" alt="5-stage pipelined processor block diagram">
+    <figcaption>5-stage pipelined datapath, expanded from the single-cycle design above with hazard and forwarding units added.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig0c-pipeline-latches.png" alt="Pipeline latch detail diagram">
+    <figcaption>Signal detail for each inter-stage pipeline latch (IF/ID, ID/EX, EX/MEM, MEM/WB).</figcaption>
+  </figure>
+
+  <h3>Multicore architecture</h3>
+  <p>
+    The pipeline is then instantiated twice — two full datapaths, each with a private direct-mapped instruction cache and a private 2-way set-associative data cache — sharing a single backing RAM behind an arbitrating system bus. The bus is the only path from either core's data cache to main memory, which is also where cache coherence is enforced.
+  </p>
+  <figure>
+    <img src="figs/fig1-multicore-arch.png" alt="Multicore architecture block diagram">
+    <figcaption>Figure 1 — Multicore architecture: two datapaths, each with its own I-cache/D-cache, arbitrating for the shared bus and RAM.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig2-signal-arch.png" alt="Signal-level architecture diagram">
+    <figcaption>Figure 2 — Signal-level view of the datapath ↔ cache ↔ memory-control ↔ RAM interfaces.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig3-pipeline-block.png" alt="Dual-core pipelined block diagram">
+    <figcaption>Figure 3 — Full dual-core pipelined block diagram (both cores shown; each is the 5-stage pipeline above, replicated).</figcaption>
+  </figure>
+
+  <h3>Cache hierarchy</h3>
+  <p>
+    The instruction cache is direct-mapped: each fetch checks tag + valid bit for the indexed frame, and on a miss re-fills the line from memory before resuming. The data cache is a 2-way set-associative write-back cache — each set holds two ways, each with its own valid/dirty bit, tag, and two words of data; a hit is any way whose tag matches, and dirty lines get written back to RAM before being evicted or on cleanup/flush.
+  </p>
+  <figure>
+    <img src="figs/fig4-icache.png" alt="Instruction cache design diagram">
+    <figcaption>Figure 4 — Instruction cache: state machine (IDLE / MISS / MEMLOAD) and frame layout (valid, tag, data).</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig5-dcache-structure.png" alt="Data cache structure diagram">
+    <figcaption>Figure 5 — Data cache structure: two ways per set, per-way tag comparison, and the LR/SC reservation register (top right) used for atomics.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig6-dcache-fsm.png" alt="Data cache state transition diagram">
+    <figcaption>Figure 6 — Data cache state machine: read/write-back per way, cleanup on eviction, and a flush path for coherence.</figcaption>
+  </figure>
+
+  <h3>Coherence control using the bus</h3>
+  <p>
+    With two data caches able to hold copies of the same line, the bus implements an <strong>MSI (Modified / Shared / Invalid) snooping coherence protocol</strong>. The bus watches each core's cache-to-cache transaction requests (<code>cctrans</code>) and RAM access state, and on a conflicting access forces the other core to write back (<code>ctc_wb</code>) or re-fetch (<code>rtc</code>) before granting access — guaranteeing neither core ever operates on stale data.
+  </p>
+  <figure>
+    <img src="figs/fig7-bus-fsm.png" alt="Bus state transition diagram for coherence control">
+    <figcaption>Figure 7 — Bus state machine: FETCH / CHECK / write-back / re-fetch-then-check states implementing MSI coherence across both cores' data caches.</figcaption>
+  </figure>
+
+  <h2>Results</h2>
+
+  <h3>Benchmark used</h3>
+  <p>
+    <strong>Merge sort</strong> (5,409 instructions) is the primary benchmark for the single-cycle, pipelined (cached and uncached), and single-threaded multicore configurations. For the dual-threaded multicore configuration, a parallel merge sort splits the same problem across both cores (5,429 instructions total — 3,173 on core 0, 2,256 on core 1).
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <caption>Instruction-type breakdown of the merge-sort benchmark</caption>
+      <thead><tr><th>Instruction Type</th><th>Count</th><th>Percentage</th></tr></thead>
+      <tbody>
+        <tr><td>R-type</td><td>823</td><td>15.22%</td></tr>
+        <tr><td>I-type</td><td>834</td><td>15.42%</td></tr>
+        <tr><td>Load</td><td>806</td><td>14.90%</td></tr>
+        <tr><td>Store</td><td>691</td><td>12.77%</td></tr>
+        <tr><td>Jump</td><td>695</td><td>12.85%</td></tr>
+        <tr><td>Branch</td><td>1,560</td><td>28.83%</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>5,409</strong></td><td><strong>100%</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Metrics &amp; methodology</h3>
+  <p>Each design is evaluated on the following, swept across simulated memory latencies of 0/2/6/10 cycles:</p>
+  <ul>
+    <li><strong>Cycles</strong> — total clock cycles to run the benchmark, from simulation.</li>
+    <li><strong>CPUCLK</strong> — maximum synthesis frequency, from the Quartus sweep report.</li>
+    <li><strong>CPI</strong> = Cycles ÷ Instructions.</li>
+    <li><strong>Instruction latency (ns)</strong> = (CPI ÷ Clock Frequency) × 5.</li>
+    <li><strong>Execution time (ns)</strong> = Instructions × CPI × (1 ÷ Clock Frequency) — i.e. Iron's Law.</li>
+  </ul>
+
+  <h3>Single-cycle vs. pipelined (midterm checkpoint)</h3>
+  <p>Before adding caches or a second core, the pipeline already beats the single-cycle design: clock frequency rises ~82.6% (36.85 → 67.32 MHz) which more than compensates for a ~46.5% higher average CPI, for a net ~29.7% reduction in execution time.</p>
+
+  <div class="table-wrap">
+    <table>
+      <caption>Single-cycle processor — cycles, frequency, CPI by memory latency</caption>
+      <thead><tr><th>Latency</th><th>Cycles</th><th>CPUCLK (MHz)</th><th>CPI</th><th>I-Latency (ns)</th><th>Exec. Time (ns)</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>6,906</td><td>36.85</td><td>1.278</td><td>146.1</td><td>182,216.36</td></tr>
+        <tr><td>2</td><td>13,814</td><td>37.91</td><td>2.555</td><td>142.8</td><td>370,348.53</td></tr>
+        <tr><td>6</td><td>27,628</td><td>37.91</td><td>5.108</td><td>142.8</td><td>740,697.05</td></tr>
+        <tr><td>10</td><td>41,442</td><td>37.91</td><td>7.662</td><td>142.8</td><td>1,111,045.58</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <caption>5-stage pipelined processor (no caches yet) — cycles, frequency, CPI by memory latency</caption>
+      <thead><tr><th>Latency</th><th>Cycles</th><th>CPUCLK (MHz)</th><th>CPI</th><th>I-Latency (ns)</th><th>Exec. Time (ns)</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>10,159</td><td>67.32</td><td>1.876</td><td>80.3</td><td>128,321.96</td></tr>
+        <tr><td>2</td><td>20,255</td><td>64.45</td><td>3.747</td><td>83.9</td><td>260,452.84</td></tr>
+        <tr><td>6</td><td>40,445</td><td>64.45</td><td>7.477</td><td>84.0</td><td>520,016.67</td></tr>
+        <tr><td>10</td><td>60,635</td><td>64.45</td><td>11.21</td><td>84.0</td><td>779,580.50</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Full comparison — single-cycle → pipeline → caches → multicore</h3>
+  <p>Adding the cache hierarchy is where the biggest jump happens: it collapses the memory-latency stalls that otherwise dominate execution time once caches are missed only occasionally instead of every access. The benefit of caching also <em>grows</em> with memory latency — the gap between cached and uncached execution time widens sharply as latency increases from 0 to 10 cycles.</p>
+
+  <div class="table-wrap">
+    <table>
+      <caption>Execution time (ns) by design and simulated memory latency</caption>
+      <thead><tr><th>Design</th><th>Latency 0</th><th>Latency 2</th><th>Latency 6</th><th>Latency 10</th></tr></thead>
+      <tbody>
+        <tr><td>Single-Cycle</td><td>187,413.80</td><td>364,355.70</td><td>740,697.10</td><td>1,093,838.70</td></tr>
+        <tr><td>Pipelined (no cache)</td><td>128,321.96</td><td>260,452.84</td><td>520,016.67</td><td>779,580.50</td></tr>
+        <tr><td>Pipelined (with cache)</td><td>11,142.70</td><td>14,577.60</td><td>21,369.30</td><td>28,172.10</td></tr>
+        <tr><td>Multicore (single-threaded)</td><td>24,676.48</td><td>27,797.63</td><td>34,033.40</td><td>40,257.11</td></tr>
+        <tr><td>Multicore (dual-threaded)</td><td>16,013.16</td><td>18,699.60</td><td>23,997.75</td><td>29,401.58</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <caption>Design details at Latency = 6 — frequency, CPI, resources, and speedup</caption>
+      <thead><tr><th>Design</th><th>Freq (MHz)</th><th>Exec. Time (ns)</th><th>CPI</th><th>Latency/Instr (ns)</th><th>FPGA Resources</th><th>Speedup</th></tr></thead>
+      <tbody>
+        <tr><td>Single-Cycle Core</td><td>37.91</td><td>740,697.05</td><td>5.1</td><td>672.65</td><td>Reg: 1,293 · Comb: 3,293</td><td>1.00×</td></tr>
+        <tr><td>Pipelined Core (No Cache)</td><td>60.27</td><td>520,016.67</td><td>7.4</td><td>613.90</td><td>Reg: 1,902 · Comb: 3,667</td><td>1.42×</td></tr>
+        <tr><td>Pipelined Core with Caches</td><td>53.24</td><td>21,369.30</td><td>2.1</td><td>197.22</td><td>Reg: 1,932 · Comb: 3,714</td><td>24.33×</td></tr>
+        <tr><td>Multicore (Single Thread)</td><td>50.60</td><td>34,033.40</td><td>3.1</td><td>306.32</td><td>Reg: 8,622 · Comb: 19,142</td><td>15.28×</td></tr>
+        <tr><td>Multicore (Dual Thread)</td><td>50.60</td><td>23,997.75</td><td>2.2</td><td>217.39</td><td>Reg: 8,622 · Comb: 19,142</td><td>1.42×</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:0.85rem;">
+    Speedups are measured relative to each design's immediate predecessor: pipeline (no cache) vs. single-cycle; pipeline+cache vs. pipeline (no cache); multicore single-thread vs. pipeline (no cache); multicore dual-thread vs. multicore single-thread.
+  </p>
+
+  <h3>Key metrics (multicore, dual-thread)</h3>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">50.60 MHz</div><div class="label">Synthesis frequency</div></div>
+    <div class="stat"><div class="num">217.39 ns</div><div class="label">Instruction latency</div></div>
+    <div class="stat"><div class="num">8,622</div><div class="label">Registers used</div></div>
+    <div class="stat"><div class="num">19,142</div><div class="label">Combinational elements</div></div>
+    <div class="stat"><div class="num">24.33×</div><div class="label">Speedup from caching alone</div></div>
+    <div class="stat"><div class="num">1.42×</div><div class="label">Speedup from 2nd core</div></div>
+  </div>
+
+  <h2>Conclusions</h2>
+  <p>
+    The results show a clear, and growing, advantage in execution time once caches are introduced into the pipelined architecture — and that advantage compounds as memory latency increases, which matches the intuition that caching exists specifically to hide memory latency. Between the two multicore configurations, the dual-threaded setup gives the larger speedup, showing the coherence protocol and shared bus are doing their job — enabling real parallel execution rather than just adding synchronization overhead. That said, the multicore design costs roughly 4.5× the registers and 5× the combinational logic of the single-core cached pipeline, which matters a lot for area/power-constrained FPGA or ASIC targets.
+  </p>
+
+  <h2>Contributions</h2>
+  <p><strong>Armaan Kanchan</strong> — hazard unit, data cache testbench, bus (coherence) implementation, and the parallel merge-sort test program.</p>
+  <p><strong>Atharva Bhide</strong> — forwarding unit, data cache implementation, bus testbench, and the LR/SC implementation in the datapath.</p>
+
+  <h2>Repo &amp; further reading</h2>
+  <p>
+    Source (RTL, testbenches, ModelSim/QuestaSim scripts, test programs, and the original PDF reports) is at
+    <a href="https://github.com/AK17111/riscv-multicore-cpu" target="_blank" rel="noopener">github.com/AK17111/riscv-multicore-cpu</a> (private — reach out if you'd like access).
+  </p>
+  <p><a href="../">← Back to all projects</a></p>
+
+</article>
+
+<footer>
+  © <span id="year"></span> Armaan Kanchan. Built with plain HTML/CSS, hosted on GitHub Pages.
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
