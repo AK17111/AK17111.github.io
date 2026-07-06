@@ -256,18 +256,20 @@
 
     <div class="card">
       <div class="card-head">
-        <h3>5-Stage Pipelined CPU</h3>
-        <div class="dates">Dec 2024 – May 2025</div>
+        <h3>RISC-V Multicore Pipelined CPU</h3>
+        <div class="dates">Feb 2025 – May 2025</div>
       </div>
-      <div class="place">Purdue University · SystemVerilog, FPGA</div>
+      <div class="place">Purdue University (ECE 437) · SystemVerilog, QuestaSim, Cyclone IV FPGA</div>
       <ul>
-        <li>Designed a single-cycle and 5-stage pipelined CPU on Intel/Altera Cyclone IV with hazard detection, forwarding, and cache hierarchy.</li>
-        <li>Built MHz-level clocked design with BPT/BTB branch prediction.</li>
-        <li>Extended to a multi-core system with MSI coherency; verified via simulation, synthesis, and FPGA prototyping.</li>
+        <li>Built an RV32I core in stages: single-cycle → 5-stage pipeline (full forwarding, load-use hazard detection, BTB/BPT branch prediction) → pipeline with a 2-way set-associative write-back data cache and direct-mapped instruction cache.</li>
+        <li>Extended to a dual-core multicore system sharing RAM over an arbitrated system bus, implementing an <strong>MSI snooping coherence protocol</strong> plus LR/SC atomics for lock-free synchronization.</li>
+        <li>Verified every module (hazard unit, forwarding unit, caches, bus/coherence FSM) with standalone SystemVerilog testbenches, plus a full-system testbench checked against a cycle-accurate golden model.</li>
+        <li>Benchmarked with merge sort across memory latencies 0–10 cycles: caching alone delivered a <strong>~24× speedup</strong> over the uncached pipeline, and the coherent dual-thread multicore added another 1.42× on top of the single-threaded multicore baseline. Synthesized at 50.6 MHz on Cyclone IV (8,622 registers / 19,142 combinational elements).</li>
       </ul>
-      <div class="tags"><span class="tag">SystemVerilog</span><span class="tag">FPGA</span><span class="tag">CPU Design</span></div>
-      <!-- TODO: replace # with your actual GitHub repo link once pushed -->
-      <div class="project-links"><a href="#" target="_blank" rel="noopener">Repo →</a></div>
+      <div class="tags"><span class="tag">SystemVerilog</span><span class="tag">RISC-V</span><span class="tag">Cache Coherence (MSI)</span><span class="tag">FPGA</span></div>
+      <div class="project-links">
+        <a href="https://github.com/AK17111/riscv-multicore-cpu" target="_blank" rel="noopener">Repo (private) →</a>
+      </div>
     </div>
 
     <div class="card">
