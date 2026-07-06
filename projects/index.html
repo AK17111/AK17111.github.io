@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects — Armaan Kanchan</title>
+<meta name="description" content="Project write-ups by Armaan Kanchan — RISC-V CPU design, USB verification, embedded systems.">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="../" class="brand" style="color:inherit;">AK</a>
+    <nav class="nav-links">
+      <a href="../#education">Education</a>
+      <a href="../#experience">Experience</a>
+      <a href="./" class="active">Projects</a>
+      <a href="../#skills">Skills</a>
+      <a href="../#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="page-header">
+  <h1>Projects</h1>
+  <p>Write-ups for the projects I've put the most work into — architecture, verification methodology, and results. More being added as I clean up the repos.</p>
+</div>
+
+<section>
+  <div class="projects-grid">
+
+    <div class="project-card">
+      <a class="project-card-link" href="riscv-multicore-cpu/">
+        <div class="thumb"><img src="riscv-multicore-cpu/figs/fig1-multicore-arch.png" alt="Multicore RISC-V architecture diagram"></div>
+        <div class="body">
+          <h3>RISC-V Multicore Pipelined CPU</h3>
+          <p>Single-cycle → 5-stage pipeline → cache hierarchy → dual-core with MSI coherence. SystemVerilog, verified in QuestaSim, synthesized on Cyclone IV.</p>
+          <div class="meta">ECE 437 · Feb – May 2025</div>
+        </div>
+      </a>
+    </div>
+
+    <div class="project-card">
+      <a class="project-card-link" href="../#projects">
+        <div class="thumb" style="color:var(--text-dim);font-size:0.85rem;">SystemVerilog · QuestaSim</div>
+        <div class="body">
+          <h3>AHB-Lite USB 1.0 Verification</h3>
+          <p>USB 1.0 bulk-transfer endpoint with an AHB-Lite client interface — NRZI encoding, circular FIFO, and a full SystemVerilog verification suite.</p>
+          <div class="meta">Jan – May 2025 · summary on home page →</div>
+        </div>
+      </a>
+    </div>
+
+    <div class="project-card">
+      <a class="project-card-link" href="../#projects">
+        <div class="thumb" style="color:var(--text-dim);font-size:0.85rem;">STM32 · Embedded C</div>
+        <div class="body">
+          <h3>Who Wants to Be a Millionaire</h3>
+          <p>Two-player trivia game across two STM32 boards with TFT displays, USART inter-board comms, and GPIO keypad input.</p>
+          <div class="meta">Aug – Dec 2024 · summary on home page →</div>
+        </div>
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  © <span id="year"></span> Armaan Kanchan. Built with plain HTML/CSS, hosted on GitHub Pages.
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
