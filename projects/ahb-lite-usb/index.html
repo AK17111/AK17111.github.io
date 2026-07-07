@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AHB-Lite USB 1.0 Verification — Armaan Kanchan</title>
+<title>AHB-Lite USB 1.0 Verification - Armaan Kanchan</title>
 <meta name="description" content="Design and functional verification of a USB 1.0 bulk-transfer endpoint with an AHB-Lite client interface, in SystemVerilog.">
 <link rel="stylesheet" href="../../assets/css/site.css">
 </head>
@@ -36,7 +36,7 @@
 <article class="article">
 
   <div class="notice">
-    This project implements USB 1.0 bulk-transfer handling between a host and an SoC endpoint, bridged onto an internal AHB-Lite bus. It's a 3-person team project (Atharva Bhide, Akshath Raghav Ravikiran, and me) for ECE 337 at Purdue, so the source stays in a private repo — <a href="https://github.com/AkshathRaghav/usb-cdl" target="_blank" rel="noopener">github.com/AkshathRaghav/usb-cdl</a>. Happy to walk through it directly, just reach out.
+    This project implements USB 1.0 bulk-transfer handling between a host and an SoC endpoint, bridged onto an internal AHB-Lite bus. It's a 3-person team project (Atharva Bhide, Akshath Raghav Ravikiran, and me) for ECE 337 at Purdue, so the source stays in a private repo - <a href="https://github.com/AkshathRaghav/usb-cdl" target="_blank" rel="noopener">github.com/AkshathRaghav/usb-cdl</a>. Happy to walk through it directly, just reach out.
     <br><br>
     Every module (USB RX, USB TX, Data Buffer, AHB-Lite Satellite, and the full top-level bus) was verified against a directed test plan before integration. The suite covers, among others:
     <ul style="margin-top:10px;">
@@ -50,7 +50,7 @@
 
   <h2>Overview</h2>
   <p>
-    The design handles USB bulk-transfer packets moving between a host (the managing device) and a device endpoint sitting inside an SoC. Four RTL modules do the work: <strong>USB RX</strong> receives and validates packets coming from the host, <strong>USB TX</strong> sends packets back out to the host, a <strong>Data Buffer</strong> holds the in-flight payload bytes in both directions, and an <strong>AHB-Lite Satellite</strong> exposes all of it to the SoC's internal bus so the on-chip controller can poll status, push data to send, and pull data that's arrived — all through ordinary AHB-Lite reads and writes.
+    The design handles USB bulk-transfer packets moving between a host (the managing device) and a device endpoint sitting inside an SoC. Four RTL modules do the work: <strong>USB RX</strong> receives and validates packets coming from the host, <strong>USB TX</strong> sends packets back out to the host, a <strong>Data Buffer</strong> holds the in-flight payload bytes in both directions, and an <strong>AHB-Lite Satellite</strong> exposes all of it to the SoC's internal bus so the on-chip controller can poll status, push data to send, and pull data that's arrived - all through ordinary AHB-Lite reads and writes.
   </p>
   <p>
     The USB side runs at the USB 1.0 full/low-speed data rate of 12 MHz with NRZI line encoding on DP/DM; the SoC side runs on a 100 MHz system clock and talks AHB-Lite, so the Satellite is also the clock-domain and protocol bridge between the two worlds.
@@ -60,16 +60,16 @@
 
   <h3>Top-level architecture</h3>
   <p>
-    The AHB-Lite Satellite sits in the middle of everything. On one side it's a standard AHB-Lite slave — it decodes <code>haddr</code>/<code>htrans</code>/<code>hwrite</code>/<code>hsize</code> from the controller, drives <code>hrdata</code>/<code>hresp</code>/<code>hready</code> back, and exposes a small set of internal registers (status, error, buffer occupancy, TX packet control, flush control). On the other side it wires directly into USB RX, USB TX, and the shared Data Buffer: it reads out what RX has decoded, writes commands that tell TX what to send, and manages buffer reads/writes and flush/clear signaling for both data directions.
+    The AHB-Lite Satellite sits in the middle of everything. On one side it's a standard AHB-Lite slave - it decodes <code>haddr</code>/<code>htrans</code>/<code>hwrite</code>/<code>hsize</code> from the controller, drives <code>hrdata</code>/<code>hresp</code>/<code>hready</code> back, and exposes a small set of internal registers (status, error, buffer occupancy, TX packet control, flush control). On the other side it wires directly into USB RX, USB TX, and the shared Data Buffer: it reads out what RX has decoded, writes commands that tell TX what to send, and manages buffer reads/writes and flush/clear signaling for both data directions.
   </p>
   <figure>
     <img src="figs/fig1-top-level.png" alt="Top-level AHB-Lite Satellite block diagram">
     <figcaption>Top-level interconnect: AHB-Lite Satellite arbitrates between the SoC bus (HSEL/HADDR/HTRANS/HWDATA/HRDATA/HRESP/HREADY) and the USB RX/TX/Data-Buffer trio, with DP/DM as the physical USB lines.</figcaption>
   </figure>
 
-  <h3>USB RX — reception &amp; validation</h3>
+  <h3>USB RX - reception &amp; validation</h3>
   <p>
-    RX watches DP/DM for a sync pattern, NRZI-decodes incoming bits through a 24-bit shift register, and runs the result through a small pipeline of validators: sync validation, PID (packet ID) validation, and — for data packets — an EOP/CRC check before the byte is handed to the Data Buffer. <code>RX_Transfer_Active</code> goes high the moment a valid sync is seen and stays high for the whole transfer; <code>RX_Packet</code> tells the Satellite what kind of packet is coming in; <code>RX_Error</code> goes high (and <code>flush</code> fires) on anything malformed — a premature EOP, an out-of-range PID, or an attempt to write into a full buffer.
+    RX watches DP/DM for a sync pattern, NRZI-decodes incoming bits through a 24-bit shift register, and runs the result through a small pipeline of validators: sync validation, PID (packet ID) validation, and - for data packets - an EOP/CRC check before the byte is handed to the Data Buffer. <code>RX_Transfer_Active</code> goes high the moment a valid sync is seen and stays high for the whole transfer; <code>RX_Packet</code> tells the Satellite what kind of packet is coming in; <code>RX_Error</code> goes high (and <code>flush</code> fires) on anything malformed - a premature EOP, an out-of-range PID, or an attempt to write into a full buffer.
   </p>
   <figure>
     <img src="figs/fig2a-usb-rx-rtl.jpeg" alt="USB RX RTL block diagram">
@@ -80,7 +80,7 @@
     <figcaption>USB RX state machine: IDLE → sync check → PID check → packet-type-dependent path (token vs. data) → EOP, with a dedicated RX_ERROR state that flushes the buffer and returns to IDLE.</figcaption>
   </figure>
 
-  <h3>USB TX — transmission</h3>
+  <h3>USB TX - transmission</h3>
   <p>
     TX is built out of four pieces: an FSM that branches on the requested packet type (ACK / NAK / STALL / DATA) and drives control signals like <code>enable_timer</code> and <code>EOP_en</code>; a timer running at 12 MHz with an 8/8/9 rollover scheme for correct bit timing; an 8-bit shift register that serializes bytes out to the encoder; and an NRZI encoder that toggles DP/DM on a 0 bit, holds on a 1 bit, and drives the correct end-of-packet sequence. For DATA packets, TX keeps shifting bytes out of the Data Buffer until occupancy hits zero, then appends the (dummy, for this project) CRC and EOP.
   </p>
@@ -91,7 +91,7 @@
 
   <h3>Data Buffer</h3>
   <p>
-    A 64-byte circular register array backs both directions of traffic — bytes coming from the host land here before the SoC reads them out, and bytes the SoC wants to send sit here until TX drains them. Read and write addresses (<code>raddr</code>/<code>waddr</code>) advance independently, buffer occupancy is tracked as a running counter, and a flush/clear input zeroes the whole array on an RX error or an explicit AHB command.
+    A 64-byte circular register array backs both directions of traffic - bytes coming from the host land here before the SoC reads them out, and bytes the SoC wants to send sit here until TX drains them. Read and write addresses (<code>raddr</code>/<code>waddr</code>) advance independently, buffer occupancy is tracked as a running counter, and a flush/clear input zeroes the whole array on an RX error or an explicit AHB command.
   </p>
   <figure>
     <img src="figs/fig3-data-buffer.png" alt="Data buffer RTL diagram">
@@ -109,7 +109,7 @@
 
   <h2>Verification</h2>
   <p>
-    Every module has its own standalone SystemVerilog testbench before being folded into a full <code>cdl_bus</code> system-level testbench. The plan below is the actual directed test matrix used to sign off each module — it's organized by module, the feature under test, and the expected pass/fail condition.
+    Every module has its own standalone SystemVerilog testbench before being folded into a full <code>cdl_bus</code> system-level testbench. The plan below is the actual directed test matrix used to sign off each module - it's organized by module, the feature under test, and the expected pass/fail condition.
   </p>
 
   <h3>AHB Satellite</h3>
@@ -179,7 +179,7 @@
 
   <h3>Top-level (full host ↔ endpoint)</h3>
   <p>
-    With every module individually verified, a full <code>cdl_bus</code> testbench drives complete host-to-endpoint and endpoint-to-host sequences end-to-end: OUT/IN packet reception, DATA packet reception into the buffer, status-register polling by the AHB controller, ACK generation back to the host, buffer read/clear/write from the controller side, and DATA transmission back out to the host — all checked at the correct 12 MHz USB timing and against the AHB-side <code>hready</code>/<code>hresp</code> contract.
+    With every module individually verified, a full <code>cdl_bus</code> testbench drives complete host-to-endpoint and endpoint-to-host sequences end-to-end: OUT/IN packet reception, DATA packet reception into the buffer, status-register polling by the AHB controller, ACK generation back to the host, buffer read/clear/write from the controller side, and DATA transmission back out to the host - all checked at the correct 12 MHz USB timing and against the AHB-side <code>hready</code>/<code>hresp</code> contract.
   </p>
 
   <h2>Synthesis results</h2>
@@ -195,12 +195,12 @@
     <div class="stat"><div class="num">173 mW</div><div class="label">Estimated total power</div></div>
   </div>
   <p>
-    The design carries no clock constraint at the top level (the USB-side timing is generated internally off the 12 MHz/100 MHz counters rather than a single synthesis clock), so Design Compiler reports the longest combinational path — 2.26 ns, from the RX state register out to the <code>rx_transfer_active</code> output pin — as unconstrained rather than against a target frequency. By instance, the Data Buffer's 64×8 register array dominates area and power (roughly 90% of total power draw), which tracks with it being the only real storage element in the design outside of control-state flip-flops.
+    The design carries no clock constraint at the top level (the USB-side timing is generated internally off the 12 MHz/100 MHz counters rather than a single synthesis clock), so Design Compiler reports the longest combinational path - 2.26 ns, from the RX state register out to the <code>rx_transfer_active</code> output pin - as unconstrained rather than against a target frequency. By instance, the Data Buffer's 64×8 register array dominates area and power (roughly 90% of total power draw), which tracks with it being the only real storage element in the design outside of control-state flip-flops.
   </p>
 
   <h2>Conclusions</h2>
   <p>
-    The trickiest part of this design wasn't any single module in isolation — it was the boundary conditions between them: what happens when the controller tries to read while RX is mid-store, what happens when TX is asked to send while the buffer is still draining from a previous transfer, what happens when EOP shows up somewhere it isn't supposed to. The directed test plan above exists specifically to hit those seams (the RAW-hazard tests on the AHB Satellite and the premature-EOP-injection tests on RX were the ones that actually caught bugs during development, rather than the "happy path" tests). Getting the Satellite's byte-sequencing FSM right — since the internal registers are wider than a single AHB beat in places — also took more iteration than the USB-side timing logic did, which was comparatively mechanical once the 12 MHz timer was correct.
+    The trickiest part of this design wasn't any single module in isolation - it was the boundary conditions between them: what happens when the controller tries to read while RX is mid-store, what happens when TX is asked to send while the buffer is still draining from a previous transfer, what happens when EOP shows up somewhere it isn't supposed to. The directed test plan above exists specifically to hit those seams (the RAW-hazard tests on the AHB Satellite and the premature-EOP-injection tests on RX were the ones that actually caught bugs during development, rather than the "happy path" tests). Getting the Satellite's byte-sequencing FSM right - since the internal registers are wider than a single AHB beat in places - also took more iteration than the USB-side timing logic did, which was comparatively mechanical once the 12 MHz timer was correct.
   </p>
 
   <h2>Contributions</h2>
