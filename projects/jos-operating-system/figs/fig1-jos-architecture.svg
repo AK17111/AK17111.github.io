@@ -1,0 +1,42 @@
+<svg viewBox="0 0 800 460" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#4f8cff"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="800" height="460" fill="#0d1117"/>
+
+  <!-- User environments row -->
+  <rect x="40" y="30" width="330" height="90" rx="10" fill="#1c2129" stroke="#2d333b"/>
+  <text x="205" y="60" text-anchor="middle" fill="#e6edf3" font-size="18" font-weight="700">Shell + User Programs</text>
+  <text x="205" y="86" text-anchor="middle" fill="#9aa4b2" font-size="13">spawn() / fork() / pipe</text>
+
+  <rect x="430" y="30" width="330" height="90" rx="10" fill="#1c2129" stroke="#2d333b"/>
+  <text x="595" y="60" text-anchor="middle" fill="#e6edf3" font-size="18" font-weight="700">File System Environment</text>
+  <text x="595" y="86" text-anchor="middle" fill="#9aa4b2" font-size="13">disk I/O privilege via EFLAGS/IOPL</text>
+
+  <!-- IPC arrow between the two user environments -->
+  <line x1="370" y1="75" x2="430" y2="75" stroke="#4f8cff" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="430" y1="90" x2="370" y2="90" stroke="#4f8cff" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="400" y="66" text-anchor="middle" fill="#4f8cff" font-size="11" font-weight="600">IPC</text>
+
+  <!-- Arrows down to kernel -->
+  <line x1="205" y1="120" x2="205" y2="185" stroke="#4f8cff" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="595" y1="120" x2="595" y2="185" stroke="#4f8cff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Kernel box -->
+  <rect x="40" y="190" width="720" height="120" rx="10" fill="#161b22" stroke="#4f8cff" stroke-width="1.5"/>
+  <text x="400" y="222" text-anchor="middle" fill="#e6edf3" font-size="19" font-weight="700">JOS Kernel</text>
+  <text x="140" y="255" text-anchor="middle" fill="#9aa4b2" font-size="13">Traps / Exceptions</text>
+  <text x="290" y="255" text-anchor="middle" fill="#9aa4b2" font-size="13">Env creation + COW fork</text>
+  <text x="460" y="255" text-anchor="middle" fill="#9aa4b2" font-size="13">Round-robin scheduler</text>
+  <text x="630" y="255" text-anchor="middle" fill="#9aa4b2" font-size="13">Capability-free IPC</text>
+  <text x="400" y="284" text-anchor="middle" fill="#9aa4b2" font-size="13">Physical/virtual memory management · page directory permissions (PTE_U / PTE_W)</text>
+
+  <!-- Arrow down to hardware -->
+  <line x1="400" y1="310" x2="400" y2="375" stroke="#4f8cff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Hardware box -->
+  <rect x="200" y="380" width="400" height="60" rx="10" fill="#1c2129" stroke="#2d333b"/>
+  <text x="400" y="416" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="700">x86 Hardware (QEMU)</text>
+</svg>
