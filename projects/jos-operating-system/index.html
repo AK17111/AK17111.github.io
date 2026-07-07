@@ -47,6 +47,11 @@
     We developed and debugged everything against QEMU (an x86 machine simulator), which made it possible to single-step through boot code, inspect page tables, and set watchpoints on kernel data structures that would be far harder to debug on real hardware.
   </p>
 
+  <figure>
+    <img src="figs/fig1-jos-architecture.svg" alt="JOS exokernel architecture diagram">
+    <figcaption>JOS's exokernel layering: user environments (shell, programs, and the file system environment) talk to each other over IPC and sit on top of a small kernel handling traps, scheduling, memory, and environment creation — which itself sits on the bare x86 hardware simulated in QEMU.</figcaption>
+  </figure>
+
   <h2>Lab 1 — Booting a PC</h2>
   <p>
     The first lab is about what happens before there's an operating system at all: how a PC's BIOS hands off to a boot sector, how that boot sector (running in 16-bit real mode) switches the processor into 32-bit protected mode, and how it loads and jumps into the actual kernel from disk. We also built the kernel's early console driver and a minimal <code>printf</code>/backtrace implementation, then completed the lab's extra-credit challenge on top of the base exercises.
