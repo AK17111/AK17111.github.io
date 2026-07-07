@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AHB-Lite USB 1.0 Verification — Armaan Kanchan</title>
+<meta name="description" content="Design and functional verification of a USB 1.0 bulk-transfer endpoint with an AHB-Lite client interface, in SystemVerilog.">
+<link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="../../" class="brand" style="color:inherit;">AK</a>
+    <nav class="nav-links">
+      <a href="../../#education">Education</a>
+      <a href="../../#experience">Experience</a>
+      <a href="../" class="active">Projects</a>
+      <a href="../../#skills">Skills</a>
+      <a href="../../#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="article-header">
+  <div class="breadcrumb"><a href="../">Projects</a> / AHB-Lite USB 1.0 Verification</div>
+  <h1>AHB-Lite USB 1.0 Verification</h1>
+  <div class="subtitle">Design and functional verification of a USB 1.0 bulk-transfer endpoint with an AHB-Lite client interface</div>
+  <div class="meta-row">
+    <span>Purdue University · ECE 337</span>
+    <span>Sep – Dec 2024</span>
+    <span>SystemVerilog · QuestaSim · Synopsys DC</span>
+  </div>
+</div>
+
+<article class="article">
+
+  <div class="notice">
+    This project implements USB 1.0 bulk-transfer handling between a host and an SoC endpoint, bridged onto an internal AHB-Lite bus. It's a 3-person team project (Atharva Bhide, Akshath Raghav Ravikiran, and me) for ECE 337 at Purdue, so the source stays in a private repo — <a href="https://github.com/AkshathRaghav/usb-cdl" target="_blank" rel="noopener">github.com/AkshathRaghav/usb-cdl</a>. Happy to walk through it directly, just reach out.
+    <br><br>
+    Every module (USB RX, USB TX, Data Buffer, AHB-Lite Satellite, and the full top-level bus) was verified against a directed test plan before integration. The suite covers, among others:
+    <ul style="margin-top:10px;">
+      <li>AHB Satellite: address/size errors, buffer full/empty error paths, status/error register polling, isolated and overlapping read/write (RAW hazard) transactions</li>
+      <li>USB TX: ACK / NAK / STALL / DATA packet framing, CRC stuffing, EOP timing, NRZI encoding correctness, 12 MHz bit-timing check</li>
+      <li>Data Buffer: overflow/underflow boundary tests (65-byte stress), flush/clear behavior, 32-byte fill monitoring</li>
+      <li>USB RX: NRZI decoding, premature-EOP injection at every stage (PID/sync/data), invalid address/endpoint/CRC-length rejection</li>
+      <li>Top-level: full host↔endpoint OUT/IN/DATA/ACK sequences exercised end-to-end through the AHB controller</li>
+    </ul>
+  </div>
+
+  <h2>Overview</h2>
+  <p>
+    The design handles USB bulk-transfer packets moving between a host (the managing device) and a device endpoint sitting inside an SoC. Four RTL modules do the work: <strong>USB RX</strong> receives and validates packets coming from the host, <strong>USB TX</strong> sends packets back out to the host, a <strong>Data Buffer</strong> holds the in-flight payload bytes in both directions, and an <strong>AHB-Lite Satellite</strong> exposes all of it to the SoC's internal bus so the on-chip controller can poll status, push data to send, and pull data that's arrived — all through ordinary AHB-Lite reads and writes.
+  </p>
+  <p>
+    The USB side runs at the USB 1.0 full/low-speed data rate of 12 MHz with NRZI line encoding on DP/DM; the SoC side runs on a 100 MHz system clock and talks AHB-Lite, so the Satellite is also the clock-domain and protocol bridge between the two worlds.
+  </p>
+
+  <h2>Design</h2>
+
+  <h3>Top-level architecture</h3>
+  <p>
+    The AHB-Lite Satellite sits in the middle of everything. On one side it's a standard AHB-Lite slave — it decodes <code>haddr</code>/<code>htrans</code>/<code>hwrite</code>/<code>hsize</code> from the controller, drives <code>hrdata</code>/<code>hresp</code>/<code>hready</code> back, and exposes a small set of internal registers (status, error, buffer occupancy, TX packet control, flush control). On the other side it wires directly into USB RX, USB TX, and the shared Data Buffer: it reads out what RX has decoded, writes commands that tell TX what to send, and manages buffer reads/writes and flush/clear signaling for both data directions.
+  </p>
+  <figure>
+    <img src="figs/fig1-top-level.png" alt="Top-level AHB-Lite Satellite block diagram">
+    <figcaption>Top-level interconnect: AHB-Lite Satellite arbitrates between the SoC bus (HSEL/HADDR/HTRANS/HWDATA/HRDATA/HRESP/HREADY) and the USB RX/TX/Data-Buffer trio, with DP/DM as the physical USB lines.</figcaption>
+  </figure>
+
+  <h3>USB RX — reception &amp; validation</h3>
+  <p>
+    RX watches DP/DM for a sync pattern, NRZI-decodes incoming bits through a 24-bit shift register, and runs the result through a small pipeline of validators: sync validation, PID (packet ID) validation, and — for data packets — an EOP/CRC check before the byte is handed to the Data Buffer. <code>RX_Transfer_Active</code> goes high the moment a valid sync is seen and stays high for the whole transfer; <code>RX_Packet</code> tells the Satellite what kind of packet is coming in; <code>RX_Error</code> goes high (and <code>flush</code> fires) on anything malformed — a premature EOP, an out-of-range PID, or an attempt to write into a full buffer.
+  </p>
+  <figure>
+    <img src="figs/fig2a-usb-rx-rtl.jpeg" alt="USB RX RTL block diagram">
+    <figcaption>USB RX RTL: clock-divider/flex-counter front end feeding NRZI decode → shift register → FSM, with parallel sync/PID/EOP validators and the DATA0/CRC staging logic.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig2b-usb-rx-fsm.jpeg" alt="USB RX state transition diagram">
+    <figcaption>USB RX state machine: IDLE → sync check → PID check → packet-type-dependent path (token vs. data) → EOP, with a dedicated RX_ERROR state that flushes the buffer and returns to IDLE.</figcaption>
+  </figure>
+
+  <h3>USB TX — transmission</h3>
+  <p>
+    TX is built out of four pieces: an FSM that branches on the requested packet type (ACK / NAK / STALL / DATA) and drives control signals like <code>enable_timer</code> and <code>EOP_en</code>; a timer running at 12 MHz with an 8/8/9 rollover scheme for correct bit timing; an 8-bit shift register that serializes bytes out to the encoder; and an NRZI encoder that toggles DP/DM on a 0 bit, holds on a 1 bit, and drives the correct end-of-packet sequence. For DATA packets, TX keeps shifting bytes out of the Data Buffer until occupancy hits zero, then appends the (dummy, for this project) CRC and EOP.
+  </p>
+  <figure>
+    <img src="figs/fig5-usb-tx.png" alt="USB TX RTL and timing diagram">
+    <figcaption>USB TX: FSM-driven packet framing (sync → PID → payload/CRC → EOP) over the 12 MHz timer and shift-register/NRZI-encoder datapath.</figcaption>
+  </figure>
+
+  <h3>Data Buffer</h3>
+  <p>
+    A 64-byte circular register array backs both directions of traffic — bytes coming from the host land here before the SoC reads them out, and bytes the SoC wants to send sit here until TX drains them. Read and write addresses (<code>raddr</code>/<code>waddr</code>) advance independently, buffer occupancy is tracked as a running counter, and a flush/clear input zeroes the whole array on an RX error or an explicit AHB command.
+  </p>
+  <figure>
+    <img src="figs/fig3-data-buffer.png" alt="Data buffer RTL diagram">
+    <figcaption>Data Buffer: 64-entry byte array with independent read/write pointers, occupancy counter, and clear/flush logic shared by RX (store) and TX (drain) paths.</figcaption>
+  </figure>
+
+  <h3>AHB-Lite Satellite</h3>
+  <p>
+    The Satellite owns the SoC-facing register file: a status register (data-ready, packet-type, transfer-active, error flags), an error register, a buffer-occupancy register, a TX-packet-control register the controller writes to kick off a send, and a flush-buffer-control register. Address decoding and write protection ensure the controller can't corrupt reserved bits or write out-of-range addresses (this is exactly what the <code>WRONG ADDR TRANSACTION</code> tests below check), and a small FSM sequences multi-byte register reads/writes (<code>W_BYTE1..4</code> / <code>R_BYTE1..4</code>) since the AHB data path is narrower than some of the internal state it has to move.
+  </p>
+  <figure>
+    <img src="figs/fig4-ahb-satellite-rtl.jpg" alt="AHB-Lite Satellite RTL diagram">
+    <figcaption>AHB-Lite Satellite: address decode + hresp generation, the register file (status/error/buffer-occupancy/TX-packet/flush-buffer), and the byte-sequencing FSM used for multi-byte register access.</figcaption>
+  </figure>
+
+  <h2>Verification</h2>
+  <p>
+    Every module has its own standalone SystemVerilog testbench before being folded into a full <code>cdl_bus</code> system-level testbench. The plan below is the actual directed test matrix used to sign off each module — it's organized by module, the feature under test, and the expected pass/fail condition.
+  </p>
+
+  <h3>AHB Satellite</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Test</th><th>Stimulus</th><th>Expected result</th></tr></thead>
+      <tbody>
+        <tr><td>Wrong-address write</td><td>Write to an invalid address</td><td><code>hresp</code> asserted</td></tr>
+        <tr><td>Wrong-size write</td><td>2-byte value written with 1-byte <code>hsize</code></td><td><code>hresp</code> asserted</td></tr>
+        <tr><td>Poll error register</td><td>Set RX/TX error, read back <code>HRData</code></td><td>Bit 0 and bit 8 set per spec</td></tr>
+        <tr><td>Flush</td><td>Set flush-buffer-ctrl, read clear + FBCR</td><td>Clear pulses high; FBCR clears after 1 cycle</td></tr>
+        <tr><td>TX packet control</td><td>Set TX-packet-ctrl, read TX_Packet + TPCR</td><td>TX_Packet set correctly; TPCR clears after 1 cycle</td></tr>
+        <tr><td>Data-mode toggling</td><td>Set TX_Transfer_Active, then clear it</td><td>D_Mode follows high then low</td></tr>
+        <tr><td>Status register</td><td>Toggle RX_Data_Ready / RX_Packet / transfer-active bits</td><td>Bits 0,1,2,3,4,8,9 match spec</td></tr>
+        <tr><td>Buffer-occupancy readback</td><td>Set buffer to varying fill levels</td><td>Occupancy register matches exactly</td></tr>
+        <tr><td>Write to full buffer</td><td>Fill buffer, then attempt a write</td><td><code>hresp</code> asserted</td></tr>
+        <tr><td>Read from empty buffer</td><td>Empty buffer, then attempt a read</td><td><code>hresp</code> asserted</td></tr>
+        <tr><td>Basic 1-byte write / 4-byte write</td><td>hsize = 0 single write; hsize = 2 four-byte write</td><td>TX Data / data buffer match written value at each FSM stage</td></tr>
+        <tr><td>Basic 1-byte read / 4-byte read</td><td>hsize = 0 single read; hsize = 2 four-byte read</td><td>RX Data / HRData match buffered value at each FSM stage</td></tr>
+        <tr><td>Overlapping read + write (RAW)</td><td>2-byte write immediately followed by a 1-byte read (and the reverse)</td><td><code>hready</code> stalls correctly; no stale/RAW-hazard data observed on TX/RX Data</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>USB TX</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Test</th><th>Stimulus</th><th>Expected result</th></tr></thead>
+      <tbody>
+        <tr><td>ACK / NAK / STALL</td><td><code>Tx_packet</code> = 2 / 3 / 4</td><td>Correct PID sent; EOP held for 2 bit periods</td></tr>
+        <tr><td>DATA + CRC1/CRC2 + EOP</td><td><code>Tx_packet</code> = 1</td><td>PID_data matches; payload shifts out until buffer empty; dummy CRC bytes appended; EOP held 2 bit periods, then IDLE for 1</td></tr>
+        <tr><td>12 MHz timing check</td><td>Any TX packet</td><td>250 ns between consecutive strobe cycles</td></tr>
+        <tr><td>NRZI encoding</td><td>Waveform-driven CDL packet</td><td>DP/DM toggle/hold pattern matches spec when decoded back through RX</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Data Buffer</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Test</th><th>Stimulus</th><th>Expected result</th></tr></thead>
+      <tbody>
+        <tr><td>Overflow</td><td>Write 65 bytes (1 past capacity)</td><td>65th write ignored; <code>waddr</code> pins at 63, occupancy pins at 64</td></tr>
+        <tr><td>Underflow</td><td>Read 65 bytes from an empty/drained buffer</td><td>65th read ignored; <code>raddr</code> pins at 63, occupancy pins at 0</td></tr>
+        <tr><td>32-byte fill monitoring</td><td>Write 32 bytes sequentially</td><td>Buffer contents match exactly at every step</td></tr>
+        <tr><td>Flush / clear</td><td>Assert flush or clear from RX/AHB</td><td>Register array zeroed; <code>raddr</code>=<code>waddr</code>=0; occupancy = 0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>USB RX</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Test</th><th>Stimulus</th><th>Expected result</th></tr></thead>
+      <tbody>
+        <tr><td>Full packet receive (ACK/NAK/IN/OUT/DATA0/DATA1)</td><td>Correctly framed packet through EOP</td><td>No EOP error; <code>EOP_Verified</code> asserted after the expected cycle count</td></tr>
+        <tr><td>Premature EOP during PID check</td><td>DM low for 2 cycles mid-PID-validation</td><td><code>EOP_Verified</code> stays low; <code>RX_Error</code> asserted</td></tr>
+        <tr><td>Premature EOP during sync validation</td><td>DM low for 2 cycles mid-sync</td><td>Same error path; registered RX data for that byte matches expectation</td></tr>
+        <tr><td>Premature EOP mid-data-byte</td><td>DM low for 2 cycles during DATA0/1 stage</td><td><code>RX_Error</code> asserted, buffer flushed</td></tr>
+        <tr><td>Invalid EOP sequence</td><td>DP/DM both low for 3 cycles</td><td><code>RX_Error</code> asserted in all cases; buffer flushed</td></tr>
+        <tr><td>NRZI decoding correctness</td><td>Toggling / non-toggling DP sequences</td><td>Decoded bit = 0 when toggling, 1 when held</td></tr>
+        <tr><td>Invalid address / endpoint</td><td>Packet with bad address or nonzero endpoint</td><td><code>RX_Error</code> asserted</td></tr>
+        <tr><td>Invalid CRC length (token / data)</td><td>15 CRC bits instead of 16 (data); 2 instead of 5 (token)</td><td><code>RX_Error</code> asserted</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Top-level (full host ↔ endpoint)</h3>
+  <p>
+    With every module individually verified, a full <code>cdl_bus</code> testbench drives complete host-to-endpoint and endpoint-to-host sequences end-to-end: OUT/IN packet reception, DATA packet reception into the buffer, status-register polling by the AHB controller, ACK generation back to the host, buffer read/clear/write from the controller side, and DATA transmission back out to the host — all checked at the correct 12 MHz USB timing and against the AHB-side <code>hready</code>/<code>hresp</code> contract.
+  </p>
+
+  <h2>Synthesis results</h2>
+  <p>
+    The full <code>cdl_bus</code> top level was synthesized with Synopsys Design Compiler against the OSU 0.5 µm standard-cell library (<code>osu05_stdcells</code>), the same flow used for ECE 337's ASIC track.
+  </p>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">3,957</div><div class="label">Total cells</div></div>
+    <div class="stat"><div class="num">620</div><div class="label">Sequential cells (flip-flops)</div></div>
+    <div class="stat"><div class="num">2,678</div><div class="label">Combinational cells</div></div>
+    <div class="stat"><div class="num">1.61M µm²</div><div class="label">Total cell area</div></div>
+    <div class="stat"><div class="num">2.26 ns</div><div class="label">Longest unconstrained path</div></div>
+    <div class="stat"><div class="num">173 mW</div><div class="label">Estimated total power</div></div>
+  </div>
+  <p>
+    The design carries no clock constraint at the top level (the USB-side timing is generated internally off the 12 MHz/100 MHz counters rather than a single synthesis clock), so Design Compiler reports the longest combinational path — 2.26 ns, from the RX state register out to the <code>rx_transfer_active</code> output pin — as unconstrained rather than against a target frequency. By instance, the Data Buffer's 64×8 register array dominates area and power (roughly 90% of total power draw), which tracks with it being the only real storage element in the design outside of control-state flip-flops.
+  </p>
+
+  <h2>Conclusions</h2>
+  <p>
+    The trickiest part of this design wasn't any single module in isolation — it was the boundary conditions between them: what happens when the controller tries to read while RX is mid-store, what happens when TX is asked to send while the buffer is still draining from a previous transfer, what happens when EOP shows up somewhere it isn't supposed to. The directed test plan above exists specifically to hit those seams (the RAW-hazard tests on the AHB Satellite and the premature-EOP-injection tests on RX were the ones that actually caught bugs during development, rather than the "happy path" tests). Getting the Satellite's byte-sequencing FSM right — since the internal registers are wider than a single AHB beat in places — also took more iteration than the USB-side timing logic did, which was comparatively mechanical once the 12 MHz timer was correct.
+  </p>
+
+  <h2>Contributions</h2>
+  <p>
+    This was a 3-person team project. My primary ownership was the <strong>AHB-Lite Satellite</strong> (register file, address decode, write protection, and the byte-sequencing FSM) and its testbench, plus contributing to the top-level <code>cdl_bus</code> integration testbench. <strong>Atharva Bhide</strong> and <strong>Akshath Raghav Ravikiran</strong> led the USB RX/TX datapath and Data Buffer implementations respectively, with all three of us cross-reviewing and debugging the full-system integration together.
+  </p>
+
+  <h2>Repo &amp; further reading</h2>
+  <p>
+    Full source, testbenches, QuestaSim <code>.do</code> scripts, synthesis reports, and the complete verification plan are in the private repo: <a href="https://github.com/AkshathRaghav/usb-cdl" target="_blank" rel="noopener">github.com/AkshathRaghav/usb-cdl</a>. See <a href="../">all projects</a> for the rest of my write-ups.
+  </p>
+
+</article>
+
+<footer>
+  © <span id="year"></span> Armaan Kanchan. Built with plain HTML/CSS, hosted on GitHub Pages.
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
