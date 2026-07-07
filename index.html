@@ -102,107 +102,66 @@
   <h2 class="section-title">Projects</h2>
   <div class="projects-grid">
 
-    <div class="card">
-      <div class="card-head">
-        <h3>JOS — Unix-like Operating System</h3>
-        <div class="dates">Spring 2026</div>
-      </div>
-      <div class="place">Purdue University (Operating Systems) · C, x86 Assembly, QEMU</div>
-      <ul>
-        <li>Built an x86 Unix-like OS from scratch across MIT 6.828's JOS lab sequence: boot loader, physical/virtual memory management, user environments with trap/exception/syscall dispatch, and preemptive multitasking.</li>
-        <li>Implemented SMP bootstrap with per-CPU kernel stacks, copy-on-write fork, and capability-free inter-process communication, then built a disk-backed file system exposed through a working shell.</li>
-        <li>Paired with fellow Purdue student Anas A. throughout all five labs, debugging step by step against QEMU and GDB from boot sector to shell.</li>
-      </ul>
-      <div class="tags"><span class="tag">Operating Systems</span><span class="tag">x86</span><span class="tag">C</span><span class="tag">QEMU</span></div>
-      <div class="project-links">
-        <a href="projects/jos-operating-system/">Full write-up →</a>
-      </div>
+    <div class="project-card">
+      <a class="project-card-link" href="projects/jos-operating-system/">
+        <div class="thumb"><img src="projects/jos-operating-system/figs/fig1-jos-architecture.svg" alt="JOS exokernel architecture diagram"></div>
+        <div class="body">
+          <h3>JOS — Unix-like Operating System</h3>
+          <p>Built an x86 Unix-like OS from scratch across MIT 6.828's lab sequence: boot loader, virtual memory, user environments/traps, preemptive multitasking with copy-on-write fork and IPC, and a file system with a shell.</p>
+          <div class="meta">Purdue Operating Systems · Spring 2026</div>
+        </div>
+      </a>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h3>GoldenForm — Wearable Swim Tracker</h3>
-        <div class="dates">Spring 2026</div>
-      </div>
-      <div class="place">Purdue University (ECE 49595 EMS, Senior Design, Team E22) · KiCad, ESP-IDF (ESP32-S3), Python/JS</div>
-      <ul>
-        <li>Team senior design capstone: hand-worn swim tracker with a custom PCB (ESP32-S3-WROOM-1 + BNO055 9-axis IMU), ESP-IDF firmware, and a Wi-Fi sync dashboard with 3D stroke replay.</li>
-        <li>Every hardware/firmware trade-off documented as one of 19 "Trade-Off Informed Design Requirements" (TIDRs) — e.g. IMU init retry logic, SD card retry-on-failure, sync-button-gated Wi-Fi, and per-stroke drift correction in the 3D replay view.</li>
-        <li>As Team Lead, I led verification: audited the full firmware/dashboard codebase line-by-line against all 19 TIDRs and authored the formal verification report. Hardware Lead Atharva Bhide designed and led the PCB from schematic through bring-up.</li>
-        <li>Presented the finished device at Purdue ECE's SPARK Challenge.</li>
-      </ul>
-      <div class="tags"><span class="tag">ESP32-S3</span><span class="tag">KiCad / PCB</span><span class="tag">ESP-IDF</span><span class="tag">Verification</span></div>
-      <div class="project-links">
-        <a href="projects/goldenform-swim-tracker/">Full write-up →</a>
-        <a href="https://github.com/chaudhary-nikhil/E22_Senior_Design" target="_blank" rel="noopener">Repo →</a>
-      </div>
+    <div class="project-card">
+      <a class="project-card-link" href="projects/goldenform-swim-tracker/">
+        <div class="thumb"><img src="projects/goldenform-swim-tracker/figs/fig0b-pcb-layout.jpg" alt="GoldenForm custom PCB layout"></div>
+        <div class="body">
+          <h3>GoldenForm — Wearable Swim Tracker</h3>
+          <p>Hand-worn swim tracker: custom PCB (ESP32-S3 + 9-axis IMU), ESP-IDF firmware, and a Wi-Fi dashboard with drift-corrected 3D stroke replay. 19 design requirements, formally verified against source.</p>
+          <div class="meta">ECE 49595 EMS · Senior Design · Spring 2026</div>
+        </div>
+      </a>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h3>RISC-V Multicore Pipelined CPU</h3>
-        <div class="dates">Feb 2025 – May 2025</div>
-      </div>
-      <div class="place">Purdue University (ECE 437) · SystemVerilog, QuestaSim, Cyclone IV FPGA</div>
-      <ul>
-        <li>Built an RV32I core in stages: single-cycle → 5-stage pipeline (full forwarding, load-use hazard detection, BTB/BPT branch prediction) → pipeline with a 2-way set-associative write-back data cache and direct-mapped instruction cache.</li>
-        <li>Extended to a dual-core multicore system sharing RAM over an arbitrated system bus, implementing an <strong>MSI snooping coherence protocol</strong> plus LR/SC atomics for lock-free synchronization.</li>
-        <li>Verified every module (hazard unit, forwarding unit, caches, bus/coherence FSM) with standalone SystemVerilog testbenches, plus a full-system testbench checked against a cycle-accurate golden model.</li>
-        <li>Benchmarked with merge sort across memory latencies 0–10 cycles: caching alone delivered a <strong>~24× speedup</strong> over the uncached pipeline, and the coherent dual-thread multicore added another 1.42× on top of the single-threaded multicore baseline. Synthesized at 50.6 MHz on Cyclone IV (8,622 registers / 19,142 combinational elements).</li>
-      </ul>
-      <div class="tags"><span class="tag">SystemVerilog</span><span class="tag">RISC-V</span><span class="tag">Cache Coherence (MSI)</span><span class="tag">FPGA</span></div>
-      <div class="project-links">
-        <a href="projects/riscv-multicore-cpu/">Full write-up →</a>
-        <a href="https://github.com/AK17111/riscv-multicore-cpu" target="_blank" rel="noopener">Repo (private) →</a>
-      </div>
+    <div class="project-card">
+      <a class="project-card-link" href="projects/riscv-multicore-cpu/">
+        <div class="thumb"><img src="projects/riscv-multicore-cpu/figs/fig1-multicore-arch.png" alt="Multicore RISC-V architecture diagram"></div>
+        <div class="body">
+          <h3>RISC-V Multicore Pipelined CPU</h3>
+          <p>Single-cycle → 5-stage pipeline → cache hierarchy → dual-core with MSI coherence. SystemVerilog, verified in QuestaSim, synthesized on Cyclone IV.</p>
+          <div class="meta">ECE 437 · Feb – May 2025</div>
+        </div>
+      </a>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h3>AHB-Lite USB 1.0 Verification</h3>
-        <div class="dates">Sep 2024 – Dec 2024</div>
-      </div>
-      <div class="place">Purdue University (ECE 337) · SystemVerilog, QuestaSim, Synopsys DC</div>
-      <ul>
-        <li>Designed USB 1.0 bulk-transfer endpoint with AHB-Lite client interface (USB RX/TX, circular FIFO, AHB-Lite satellite).</li>
-        <li>Built SystemVerilog testbenches and QuestaSim flows; verified host↔endpoint transfers, NRZI encoding at 12 MHz, and bus error handling.</li>
-        <li>Directed test plan covering AHB read/write/RAW-hazard error paths, TX packet framing, RX premature-EOP injection, and buffer overflow/underflow boundaries. Synthesized top-level on Synopsys DC (OSU 0.5 µm): 3,957 cells, 620 flip-flops, 1.61M µm².</li>
-      </ul>
-      <div class="tags"><span class="tag">SystemVerilog</span><span class="tag">USB</span><span class="tag">Verification</span></div>
-      <div class="project-links">
-        <a href="projects/ahb-lite-usb/">Full write-up →</a>
-        <a href="https://github.com/AkshathRaghav/usb-cdl" target="_blank" rel="noopener">Repo (private) →</a>
-      </div>
+    <div class="project-card">
+      <a class="project-card-link" href="projects/ahb-lite-usb/">
+        <div class="thumb"><img src="projects/ahb-lite-usb/figs/fig1-top-level.png" alt="AHB-Lite Satellite top-level block diagram"></div>
+        <div class="body">
+          <h3>AHB-Lite USB 1.0 Verification</h3>
+          <p>USB 1.0 bulk-transfer endpoint with an AHB-Lite client interface — NRZI encoding, circular FIFO, and a full SystemVerilog verification suite.</p>
+          <div class="meta">ECE 337 · Sep – Dec 2024</div>
+        </div>
+      </a>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h3>Who Wants to Be a Millionaire</h3>
-        <div class="dates">Aug 2024 – Dec 2024</div>
-      </div>
-      <div class="place">Purdue University · Embedded Systems</div>
-      <ul>
-        <li>Two-player trivia game on STM32 microcontrollers, each with a TFT display controlled via I2C.</li>
-        <li>Inter-board communication over USART, exchanging questions/answers in real time.</li>
-        <li>GPIO keypad input and buzzer feedback; programmed entirely in Embedded C.</li>
-      </ul>
-      <div class="tags"><span class="tag">STM32</span><span class="tag">Embedded C</span><span class="tag">I2C/USART</span></div>
-      <!-- TODO: replace # with your actual GitHub repo link once pushed -->
-      <div class="project-links"><a href="#" target="_blank" rel="noopener">Repo →</a></div>
+    <div class="project-card">
+      <a class="project-card-link" href="#skills">
+        <div class="thumb" style="color:var(--text-dim);font-size:0.85rem;">STM32 · Embedded C</div>
+        <div class="body">
+          <h3>Who Wants to Be a Millionaire</h3>
+          <p>Two-player trivia game across two STM32 boards with TFT displays, USART inter-board comms, and GPIO keypad input.</p>
+          <div class="meta">Aug – Dec 2024</div>
+        </div>
+      </a>
     </div>
 
-    <!--
-      ADD MORE PROJECTS HERE.
-      Copy one of the <div class="card"> blocks above, edit the title/dates/bullets/tags,
-      and set the href in project-links to your real GitHub repo URL.
-      See the README in this repo for step-by-step instructions.
-    -->
-    <div class="card placeholder-card">
-      <h3>More projects coming soon</h3>
-      <p style="color:var(--text-dim);font-size:0.9rem;">
-        This is a placeholder. Duplicate a project card above, fill in the details,
-        and link it to your GitHub repo — see README.md for instructions.
-      </p>
+    <div class="project-card placeholder-card">
+      <div class="body">
+        <h3>More projects coming soon</h3>
+        <p style="font-size:0.9rem;">Duplicate a project card above, fill in the details, and link it to your GitHub repo.</p>
+      </div>
     </div>
 
   </div>
