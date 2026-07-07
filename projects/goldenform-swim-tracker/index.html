@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoldenForm — Wearable Swim Tracker — Armaan Kanchan</title>
+<meta name="description" content="Custom PCB, ESP-IDF firmware, and Wi-Fi dashboard for a hand-worn swim stroke tracker — Purdue Senior Design, Team E22.">
+<link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="../../" class="brand" style="color:inherit;">AK</a>
+    <nav class="nav-links">
+      <a href="../../#education">Education</a>
+      <a href="../../#experience">Experience</a>
+      <a href="../" class="active">Projects</a>
+      <a href="../../#skills">Skills</a>
+      <a href="../../#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="article-header">
+  <div class="breadcrumb"><a href="../">Projects</a> / GoldenForm — Wearable Swim Tracker</div>
+  <h1>GoldenForm — Wearable Swim Tracker</h1>
+  <div class="subtitle">A hand-worn device with a custom PCB, ESP-IDF firmware, and a Wi-Fi dashboard that logs swim strokes and plays them back in 3D</div>
+  <div class="meta-row">
+    <span>Purdue University · ECE 49595 EMS (Senior Design) · Team E22</span>
+    <span>Spring 2026</span>
+    <span>KiCad · ESP-IDF (ESP32-S3) · Python/JS Dashboard</span>
+  </div>
+</div>
+
+<article class="article">
+
+  <div class="notice">
+    GoldenForm is a 4-person Purdue senior design capstone: <strong>Atharva Bhide</strong> (Hardware Lead) designed and led the custom PCB; <strong>Aakash Bathini</strong> (Software Lead) and <strong>Nikhil Chaudhary</strong> (Systems Lead) built the ESP-IDF firmware and Wi-Fi sync dashboard; I (<strong>Armaan Kanchan</strong>, Team Lead) coordinated the project and led verification — auditing the firmware line-by-line against our 19 documented design requirements and writing the formal verification report. Source is public: <a href="https://github.com/chaudhary-nikhil/E22_Senior_Design" target="_blank" rel="noopener">github.com/chaudhary-nikhil/E22_Senior_Design</a>. We demoed the finished device at Purdue's ECE SPARK Challenge.
+  </div>
+
+  <h2>Overview</h2>
+  <p>
+    GoldenForm is a wrist-worn swim tracker: a custom PCB with a 9-axis IMU logs hand motion during a swim session to a microSD card, then syncs it over Wi-Fi to a laptop dashboard for 3D stroke replay, stroke-rate metrics, and coaching feedback. Since GPS doesn't work underwater, all motion sensing runs off the onboard IMU alone — which drove most of the interesting design decisions in this project, from how aggressively to retry a flaky I2C sensor at boot to how to stop a magnetometer's drift from making a swimmer's hand crawl off the screen after a ten-minute session.
+  </p>
+  <p>
+    The team split ownership four ways: Atharva Bhide led the PCB — schematic capture, layout, and bring-up; Aakash Bathini led the ESP-IDF firmware; Nikhil Chaudhary led the systems/integration work tying firmware to the Wi-Fi dashboard; and I led the team and the verification effort, which meant going through the entire codebase and confirming every one of our 19 "Trade-Off Informed Design Requirements" (TIDRs — more on those below) was actually implemented as designed, not just written down in a planning doc.
+  </p>
+
+  <h2>Hardware — Custom PCB</h2>
+  <p>
+    The board is built around an ESP32-S3-WROOM-1 module and a BNO055 9-axis IMU, with a microSD card for local session storage, a haptic driver for on-wrist feedback, a USB-C port for programming/charging, and a small buck-boost regulator to hold a stable 3.3 V rail across the full LiPo discharge curve. Everything is laid out on a two-layer board sized to fit inside a small waterproof enclosure.
+  </p>
+  <figure>
+    <img src="figs/fig4-pcb-block-diagram.jpeg" alt="Annotated PCB block diagram">
+    <figcaption>Functional block map of the PCB: ESP32-S3-WROOM-1 as the MCU, the IMU and haptic driver on its right/left, power circuitry and user buttons along the bottom, USB-C and LEDs on the left, and the microSD connector on the right.</figcaption>
+  </figure>
+
+  <h3>Schematic breakdown</h3>
+  <p>
+    The full schematic is organized into clearly separated functional blocks — useful both for routing and for debugging, since a bad rail or a miswired connector stays contained to one area:
+  </p>
+  <ul>
+    <li><strong>MCU (ESP32-S3-WROOM-1):</strong> center of the schematic — routes to every other block: GPIOs for the LEDs and buttons, I2C (SDA/SCL) to the IMU, SPI (MOSI/MISO/SCK/CS) to the microSD socket, UART for programming/debug, and a dedicated GPIO for the haptic driver.</li>
+    <li><strong>Power circuitry:</strong> a UVLO (under-voltage lockout) IC gates the buck-boost converter's enable line so the board browns out gracefully instead of glitching, and the buck-boost itself (forced-PWM mode) holds VOUT stable across the LiPo's full discharge range — this is TIDR 4-3-1 from the design requirements below.</li>
+    <li><strong>IMU (BNO055):</strong> I2C-only (no SPI fallback) to save power and routing — the address-select pin is tied to set the I2C address, and local decoupling caps sit right at the IMU's supply pins.</li>
+    <li><strong>SD card socket:</strong> a standard SPI-mode microSD connector with card-detect lines wired back to the MCU so firmware knows when a card is present before it tries to mount the filesystem.</li>
+    <li><strong>Haptic driver:</strong> a single N-channel MOSFET (AO3400A) switching the haptic motor, driven from a GPIO through a gate resistor — simple, since the firmware only needs on/off control, not PWM speed control.</li>
+    <li><strong>USB-C, LEDs, boot/enable buttons, user switches:</strong> standard support circuitry — CC1/CC2 pull-downs on the USB-C receptacle for cable orientation detection, ESD-protected debounced buttons for boot/enable/sync/start-stop, and three status LEDs (sync, start/stop, and a tri-color error LED).</li>
+  </ul>
+  <figure>
+    <img src="figs/fig0-schematic.png" alt="Full KiCad schematic of the GoldenForm PCB">
+    <figcaption>Full schematic (KiCad): user switches, LEDs, USB-C, power circuitry, boot/enable, haptic driver, BNO055 IMU, and the SD card socket, all hanging off the central ESP32-S3-WROOM-1.</figcaption>
+  </figure>
+
+  <h3>PCB layout</h3>
+  <p>
+    The layout keeps the IMU close to the board's physical center (so it best represents the wrist's actual rotation point), routes the antenna keep-out zone clear of copper per the enclosure's 5&nbsp;mm antenna window, and groups each functional block into its own quadrant to keep the high-current power path short and away from the sensitive I2C lines feeding the IMU.
+  </p>
+  <figure>
+    <img src="figs/fig0b-pcb-layout.jpg" alt="KiCad PCB layout, front copper layer">
+    <figcaption>PCB layout view (mirrored/bottom-layer silkscreen shown) — IMU and antenna cutout at top, power circuitry bottom-left, microSD bottom-right, haptic/UART/boot cluster top-right.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig0c-board-in-hand.jpg" alt="Assembled GoldenForm PCB held in a hand">
+    <figcaption>The assembled board — roughly credit-card sized, with the ESP32-S3-WROOM-1 module dominating the top half and the power/button/microSD blocks visible along the bottom edge.</figcaption>
+  </figure>
+
+  <h3>Assembly &amp; bring-up</h3>
+  <p>
+    Populating the board started with hand-placing the ESP32 module and USB-C connector under a microscope before reflow, then working through each subsystem in isolation before trusting the full board.
+  </p>
+  <figure>
+    <img src="figs/fig0g-esp32-placement.jpg" alt="Placing the ESP32-S3-WROOM-1 module on the bare PCB with tweezers">
+    <figcaption>Hand-placing the ESP32-S3-WROOM-1 module onto the bare board before reflow — the USB-C footprint sits just to the left.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig0d-board-presolder-hand.jpg" alt="Fully assembled board held in hand, front side">
+    <figcaption>Fully populated board — USB-C, ON/OFF switch, IMU, ESP32 module, and the SYNC/START/STOP buttons all visible.</figcaption>
+  </figure>
+  <p>
+    Bring-up surfaced exactly the kind of intermittent bug you'd expect from a hand-soldered I2C bus: the IMU would sometimes fail to enumerate on the very first power-up. Rather than treat that as a one-off, we traced it with a logic analyzer and turned it into a design requirement — the firmware retries IMU initialization up to 5 times with a 500&nbsp;ms backoff before giving up and lighting the error LED (this is TIDR 1-3-1, discussed more in Firmware below).
+  </p>
+  <figure>
+    <img src="figs/fig8-bringup-probes.jpeg" alt="Oscilloscope probing the bare board during I2C bring-up">
+    <figcaption>Early bring-up: powering the bare board off a lab supply while probing the I2C lines to chase down the IMU enumeration issue.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig6-imu-retry-log.jpeg" alt="Serial terminal log showing IMU init retries">
+    <figcaption>The exact failure mode we designed around — the BNO055 fails to answer on I2C for a few attempts before finally initializing on retry 4/5. This log is what turned into TIDR 1-3-1.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig7-firmware-boot-log.jpeg" alt="Serial terminal boot log showing GoldenForm firmware starting">
+    <figcaption>A clean boot: GPIO init, button/LED setup, and the BNO055 address pin being configured before the IMU init sequence begins.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig10-benchtop-bringup.jpeg" alt="Benchtop debugging setup with laptop, board, and LiPo battery">
+    <figcaption>Bench setup used for most of firmware bring-up — board running off the LiPo pack, IMU breakout wired in during an earlier debug pass, serial monitor open on the laptop.</figcaption>
+  </figure>
+
+  <h3>Enclosure</h3>
+  <p>
+    The board needed to fit a small off-the-shelf waterproof enclosure alongside its LiPo battery, so before finalizing the PCB outline we mapped both components against the enclosure's actual internal dimensions — including a hard keep-out zone around the antenna trace so it wouldn't be blocked by the enclosure's metal hardware.
+  </p>
+  <figure>
+    <img src="figs/fig0f-enclosure-dimensions.jpg" alt="Hand-drawn enclosure dimension sketch">
+    <figcaption>Enclosure planning sketch: 110 × 80 mm outer shell, a 61 × 46 mm keep-out area for the PCB (with a 5 mm/6 mm antenna keep-out at the top edge), and a 60 × 35 mm footprint reserved for the LiPo battery in the bottom half.</figcaption>
+  </figure>
+
+  <h2>Firmware &amp; Software</h2>
+  <p>
+    The firmware is built on ESP-IDF and targets the ESP32-S3. Its main components map directly onto the PCB's functional blocks: <code>imu_bno055</code> (I2C driver + init/retry logic), <code>stroke_detector</code> (real-time stroke-phase detection and haptic triggering), <code>storage</code> (SD card mount, retry, and session file writing), <code>wifi_server</code> (the on-demand Wi-Fi AP and HTTP sync endpoint), <code>protobuf</code> (session data encoding), and <code>bus_i2c</code>. On the other end, a Python/JS dashboard (<code>wifi_session_processor.py</code> + <code>integrated_session_viewer.html</code>) receives synced sessions over HTTP, stores them in SQLite, and renders 3D stroke replay with drift-corrected hand position.
+  </p>
+  <p>
+    Every non-trivial decision in the firmware and dashboard was captured as a <strong>TIDR — Trade-Off Informed Design Requirement</strong>. There are 19 of them in total, each documenting one deliberate trade-off (e.g. "retry robustness" vs. "boot latency," or "battery life" vs. "always-available sync"). A few of the more consequential ones:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>TIDR</th><th>Decision</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>1-3-1</td><td>IMU init retries up to 5×, 500 ms apart, before error state</td><td>Boot latency vs. robustness — IMU failure is fatal to the wearable, so it gets the most retries of anything on the board</td></tr>
+        <tr><td>1-1-2</td><td>IMU communicates over I2C only (no SPI)</td><td>Bandwidth vs. power efficiency and simpler routing</td></tr>
+        <tr><td>7-5-1 / 7-4-1</td><td>SD card mounted over SPI, with bus-reinit retry logic on mount failure</td><td>Simpler PCB/driver vs. bandwidth; SD failure degrades gracefully (no logging) instead of bricking the device</td></tr>
+        <tr><td>5-2-1 / 5-2-2</td><td>Wi-Fi only turns on when the user holds the sync button; MCU (not the dashboard) orchestrates the SD → HTTP transfer</td><td>Battery life vs. always-on convenience</td></tr>
+        <tr><td>6-1-3</td><td>Per-stroke origin reset in the 3D replay view</td><td>Prevents long-session magnetometer drift from making the rendered hand crawl off-screen</td></tr>
+        <tr><td>4-3-1</td><td>Buck-boost regulation holds 3.1–3.5 V across the full battery discharge curve</td><td>Voltage regulation precision vs. cost/PCB complexity</td></tr>
+        <tr><td>1-1-1 (stretch)</td><td>Haptic motor fires when a live stroke deviates from the reference "ideal" stroke</td><td>Real-time coaching feedback vs. alert fatigue and per-frame compute cost</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The five TIDRs above chain together into one real behavior: the IMU has to survive init (1-3-1) reading over I2C (1-1-2) before its samples ever reach the SD card (7-5-1/7-4-1); those sessions only leave the device when the user explicitly asks for a sync (5-2-1/5-2-2); and once they're on the dashboard, the replay view has to correct for drift (6-1-3) or the whole visualization is useless past a couple of minutes. None of these are independent decisions — that interdependency is exactly what the TIDR framework was built to track.
+  </p>
+
+  <h2>Verification</h2>
+  <p>
+    My main contribution to this project, beyond leading the team, was verification: going through the entire codebase and confirming that all 19 TIDRs were <em>actually</em> implemented the way the design docs claimed, not just planned. This wasn't a rubber-stamp — for each TIDR I traced the actual function calls, checked file paths and line numbers against the code map, and re-derived the retry counts and timing constants from source rather than trusting the documentation.
+  </p>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">19 / 19</div><div class="label">TIDRs verified in source</div></div>
+    <div class="stat"><div class="num">5</div><div class="label">Interconnected data flows traced</div></div>
+    <div class="stat"><div class="num">100%</div><div class="label">File paths &amp; line numbers confirmed accurate</div></div>
+  </div>
+  <p>
+    The result was a full verification report confirming every TIDR against real source: the IMU's 5× retry loop in <code>main/app_main.c</code>, the SD card's bus-reinit-and-retry logic in <code>components/storage/storage.c</code>, the sync-button-gated Wi-Fi AP path in the same file, the HTTP session-streaming handler in <code>components/wifi_server/wifi_server.c</code>, and the drift-correction math in the dashboard's <code>gf_viz_integration.js</code> — all checked out. The few items marked as "not directly verifiable in code" (like measured Wi-Fi throughput, which depends on runtime signal conditions rather than a hardcoded constant) were flagged explicitly as needing runtime testing instead of static verification, rather than silently passed.
+  </p>
+
+  <h2>Demo — SPARK Challenge</h2>
+  <p>
+    We presented the finished prototype at Purdue ECE's SPARK Challenge in the Bill and Shirley Rice Design Studio, with a live 3D stroke-replay demo running alongside the poster below.
+  </p>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">9-axis</div><div class="label">IMU capture</div></div>
+    <div class="stat"><div class="num">8+ hrs</div><div class="label">Battery life</div></div>
+    <div class="stat"><div class="num">32 GB</div><div class="label">Onboard SD storage</div></div>
+    <div class="stat"><div class="num">Wi-Fi</div><div class="label">Post-session sync</div></div>
+  </div>
+  <figure>
+    <img src="figs/fig3-poster-board.jpeg" alt="GoldenForm poster board at the SPARK Challenge">
+    <figcaption>Our SPARK Challenge poster — project overview, hardware/software stack, PCB layout, design challenges, and requirements met.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig2-team-with-poster.jpeg" alt="Team members presenting at the SPARK Challenge">
+    <figcaption>Presenting the live 3D stroke-replay dashboard alongside the poster.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig1-team-photo.jpeg" alt="Full GoldenForm team at the SPARK Challenge">
+    <figcaption>The full team — Aakash Bathini, Atharva Bhide, Nikhil Chaudhary, and me (Armaan Kanchan) — holding the assembled device after the demo.</figcaption>
+  </figure>
+  <figure>
+    <img src="figs/fig5-spark-challenge-post.jpeg" alt="Purdue ECE Elmore Family School social post about the SPARK Challenge">
+    <figcaption>Purdue ECE's Elmore Family School of Electrical and Computer Engineering post covering Day 2 of the SPARK Challenge, featuring our team.</figcaption>
+  </figure>
+
+  <h2>Conclusions</h2>
+  <p>
+    The hardest problems in this project weren't in any single subsystem — they showed up at the seams between hardware and firmware: a flaky I2C bus at bring-up that turned into a formal retry requirement, a drifting magnetometer that required rethinking the entire visualization's reference frame, and a battery-vs-connectivity trade-off that shaped how sync works end to end. Writing every one of those decisions down as a TIDR, and then actually verifying each one against the shipped code, is what let four people split hardware, firmware, and dashboard work in parallel without the pieces silently drifting apart from each other.
+  </p>
+
+  <h2>Contributions</h2>
+  <p>
+    <strong>Atharva Bhide</strong> — Hardware Lead; designed and led the custom PCB from schematic capture through layout and bring-up. <strong>Aakash Bathini</strong> — Software Lead; ESP-IDF firmware (IMU driver, stroke detection, storage, Wi-Fi server). <strong>Nikhil Chaudhary</strong> — Systems Lead; firmware/dashboard integration and the Wi-Fi sync data path. <strong>Armaan Kanchan (me)</strong> — Team Lead; coordinated the project and led verification, auditing the full codebase against all 19 TIDRs and authoring the verification report.
+  </p>
+
+  <h2>Repo &amp; further reading</h2>
+  <p>
+    Full source — firmware, dashboard, hardware (KiCad schematics/layout/Gerbers), and the TIDR architecture &amp; verification docs — is public: <a href="https://github.com/chaudhary-nikhil/E22_Senior_Design" target="_blank" rel="noopener">github.com/chaudhary-nikhil/E22_Senior_Design</a>. See <a href="../">all projects</a> for the rest of my write-ups.
+  </p>
+
+</article>
+
+<footer>
+  © <span id="year"></span> Armaan Kanchan. Built with plain HTML/CSS, hosted on GitHub Pages.
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
