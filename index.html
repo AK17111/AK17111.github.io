@@ -104,13 +104,30 @@
 
     <div class="card">
       <div class="card-head">
+        <h3>JOS — Unix-like Operating System</h3>
+        <div class="dates">Spring 2026</div>
+      </div>
+      <div class="place">Purdue University (Operating Systems) · C, x86 Assembly, QEMU</div>
+      <ul>
+        <li>Built an x86 Unix-like OS from scratch across MIT 6.828's JOS lab sequence: boot loader, physical/virtual memory management, user environments with trap/exception/syscall dispatch, and preemptive multitasking.</li>
+        <li>Implemented SMP bootstrap with per-CPU kernel stacks, copy-on-write fork, and capability-free inter-process communication, then built a disk-backed file system exposed through a working shell.</li>
+        <li>Paired with fellow Purdue student Anas A. throughout all five labs, debugging step by step against QEMU and GDB from boot sector to shell.</li>
+      </ul>
+      <div class="tags"><span class="tag">Operating Systems</span><span class="tag">x86</span><span class="tag">C</span><span class="tag">QEMU</span></div>
+      <div class="project-links">
+        <a href="projects/jos-operating-system/">Full write-up →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
         <h3>GoldenForm — Wearable Swim Tracker</h3>
         <div class="dates">Spring 2026</div>
       </div>
-      <div class="place">Purdue University · KiCad, ESP-IDF (ESP32-S3), Python/JS</div>
+      <div class="place">Purdue University (ECE 49595 EMS, Senior Design, Team E22) · KiCad, ESP-IDF (ESP32-S3), Python/JS</div>
       <ul>
         <li>Team senior design capstone: hand-worn swim tracker with a custom PCB (ESP32-S3-WROOM-1 + BNO055 9-axis IMU), ESP-IDF firmware, and a Wi-Fi sync dashboard with 3D stroke replay.</li>
-        <li>Every hardware/firmware trade-off documented as one of 19 "Trade-Off Informed Design Requirements" (TIDRs) - e.g. IMU init retry logic, SD card retry-on-failure, sync-button-gated Wi-Fi, and per-stroke drift correction in the 3D replay view.</li>
+        <li>Every hardware/firmware trade-off documented as one of 19 "Trade-Off Informed Design Requirements" (TIDRs) — e.g. IMU init retry logic, SD card retry-on-failure, sync-button-gated Wi-Fi, and per-stroke drift correction in the 3D replay view.</li>
         <li>As Team Lead, I led verification: audited the full firmware/dashboard codebase line-by-line against all 19 TIDRs and authored the formal verification report. Hardware Lead Atharva Bhide designed and led the PCB from schematic through bring-up.</li>
         <li>Presented the finished device at Purdue ECE's SPARK Challenge.</li>
       </ul>
@@ -174,7 +191,19 @@
       <div class="project-links"><a href="#" target="_blank" rel="noopener">Repo →</a></div>
     </div>
 
-
+    <!--
+      ADD MORE PROJECTS HERE.
+      Copy one of the <div class="card"> blocks above, edit the title/dates/bullets/tags,
+      and set the href in project-links to your real GitHub repo URL.
+      See the README in this repo for step-by-step instructions.
+    -->
+    <div class="card placeholder-card">
+      <h3>More projects coming soon</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem;">
+        This is a placeholder. Duplicate a project card above, fill in the details,
+        and link it to your GitHub repo — see README.md for instructions.
+      </p>
+    </div>
 
   </div>
 </section>
