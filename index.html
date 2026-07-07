@@ -121,16 +121,19 @@
     <div class="card">
       <div class="card-head">
         <h3>AHB-Lite USB 1.0 Verification</h3>
-        <div class="dates">Jan 2025 – May 2025</div>
+        <div class="dates">Sep 2024 – Dec 2024</div>
       </div>
-      <div class="place">Purdue University · SystemVerilog, QuestaSim</div>
+      <div class="place">Purdue University (ECE 337) · SystemVerilog, QuestaSim, Synopsys DC</div>
       <ul>
         <li>Designed USB 1.0 bulk-transfer endpoint with AHB-Lite client interface (USB RX/TX, circular FIFO, AHB-Lite satellite).</li>
         <li>Built SystemVerilog testbenches and QuestaSim flows; verified host↔endpoint transfers, NRZI encoding at 12 MHz, and bus error handling.</li>
+        <li>Directed test plan covering AHB read/write/RAW-hazard error paths, TX packet framing, RX premature-EOP injection, and buffer overflow/underflow boundaries. Synthesized top-level on Synopsys DC (OSU 0.5 µm): 3,957 cells, 620 flip-flops, 1.61M µm².</li>
       </ul>
       <div class="tags"><span class="tag">SystemVerilog</span><span class="tag">USB</span><span class="tag">Verification</span></div>
-      <!-- TODO: replace # with your actual GitHub repo link once pushed -->
-      <div class="project-links"><a href="#" target="_blank" rel="noopener">Repo →</a></div>
+      <div class="project-links">
+        <a href="projects/ahb-lite-usb/">Full write-up →</a>
+        <a href="https://github.com/AkshathRaghav/usb-cdl" target="_blank" rel="noopener">Repo (private) →</a>
+      </div>
     </div>
 
     <div class="card">
