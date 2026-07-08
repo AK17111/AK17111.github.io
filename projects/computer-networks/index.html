@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computer Networks — HTTP Stack, Distance-Vector Routing &amp; Reliable Transport — Armaan Kanchan</title>
+<meta name="description" content="Socket-level HTTP client/server, a distance-vector routing protocol, and a custom reliable transport protocol over lossy UDP — Purdue ECE 46300.">
+<link rel="stylesheet" href="../../assets/css/site.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="../../" class="brand" style="color:inherit;">AK</a>
+    <nav class="nav-links">
+      <a href="../../#education">Education</a>
+      <a href="../../#experience">Experience</a>
+      <a href="../" class="active">Projects</a>
+      <a href="../../#skills">Skills</a>
+      <a href="../../#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<div class="article-header">
+  <div class="breadcrumb"><a href="../">Projects</a> / Computer Networks</div>
+  <h1>Computer Networks — HTTP Stack, Distance-Vector Routing &amp; Reliable Transport</h1>
+  <div class="subtitle">Four systems built from raw sockets up: an HTTP client and server, a distance-vector routing protocol, and a custom reliable transport protocol over an intentionally lossy link</div>
+  <div class="meta-row">
+    <span>Purdue University · ECE 46300, Introduction to Computer Communication Networks</span>
+    <span>C · Python · BSD Sockets</span>
+  </div>
+</div>
+
+<article class="article">
+
+  <div class="notice">
+    Coursework for Purdue's Introduction to Computer Communication Networks, done individually. Each assignment builds on the last — the HTTP client and server run over raw TCP sockets I manage by hand, the routing lab runs inside a discrete-event network simulator, and the transport lab hands you an unreliable link and asks you to make it reliable yourself. Source: <a href="https://github.com/AK17111/Computer_Networks_ECE463" target="_blank" rel="noopener">github.com/AK17111/Computer_Networks_ECE463</a> (private — these are live, reused course assignments, so the implementation isn't posted publicly).
+  </div>
+
+  <h2>Overview</h2>
+  <p>
+    This course works bottom-up through the network stack, and each assignment strips away one of the abstractions that real applications normally take for granted. Instead of calling a library, you build the thing the library would have called: an HTTP client and server that speak the wire protocol directly over sockets, a router that has to learn the network topology on its own using only what its neighbors tell it, and a transport layer that has to turn a link that silently drops packets into one that guarantees delivery. Working through all four labs meant building a functioning (if minimal) HTTP stack, a working implementation of one of the two classic Internet routing algorithms, and a hand-rolled reliable transport protocol with its own retransmission timers, congestion behavior, and acknowledgment scheme.
+  </p>
+
+  <h2>HTTP Client</h2>
+  <p>
+    The first lab is a from-scratch, single-file implementation of a limited <code>wget</code>: given a host, port, and file path on the command line, it opens a raw TCP socket, issues an HTTP/1.0 GET request, and parses whatever comes back well enough to handle real-world response variance across different web servers. The interesting part isn't the happy path — it's the edge cases the assignment specifically tests for: using the response's <code>Content-Length</code> header (rather than any string-based length check) to know exactly when to stop reading off the socket, since a naive approach breaks on any binary file containing an embedded null byte; correctly distinguishing a successful 200 response from an error response and behaving differently in each case; and writing the received bytes to disk in raw chunks rather than through any text-mode I/O path, since that's what makes the same code work for HTML, images, and PDFs without corrupting non-ASCII bytes.
+  </p>
+
+  <h2>HTTP Server</h2>
+  <p>
+    The second lab is the other half of the same protocol: an iterative HTTP/1.0 web server that serves static files out of a constrained web root and, on top of that, a small dynamic-content path that talks to a separate database process over UDP. The static half means implementing real HTTP semantics by hand — correctly walking the request line to reject anything that isn't a well-formed GET, serving <code>index.html</code> for directory-style paths, rejecting path-traversal attempts (a request URI containing <code>/../</code>) with a 400 rather than letting a client read arbitrary files off the host filesystem, and returning the right status line and a minimal HTML body for every non-200 case so a browser doesn't just render a blank page. The dynamic half adds a second server behind the first: on receiving a search query, the web server relays it over UDP to a separate database process, streams back whatever image data it receives in fixed-size chunks, and has to handle the entire class of problems that comes from putting UDP in the request path at all — no reply arriving inside a bounded timeout window has to turn into a "request timeout" response to the browser rather than a hang, and a database process that legitimately has nothing to return has to be distinguished from one that's simply not responding.
+  </p>
+
+  <h2>Distributed Routing</h2>
+  <p>
+    The third lab moves from a single client-server link to a simulated multi-router network and asks for a working implementation of Distance-Vector routing — the algorithm behind protocols like RIP, where every router periodically tells its direct neighbors "here's my current best cost to reach everyone I know about," and each router uses those neighbor advertisements to build up its own routing table without ever seeing the network topology directly. The router I built maintains a routing table keyed by destination, tracking the current best cost and the next-hop neighbor to reach it, and reacts to three kinds of events: a neighbor's periodic distance-vector advertisement (recomputing routes through that neighbor and adopting any strictly better path it reveals), a link coming up or changing cost (updating the direct route to that neighbor and re-triggering advertisements), and a link going down (poisoning every route that depended on that link to an explicit "infinity" cost rather than silently dropping the entry, so neighbors relying on this router can quickly learn that path is gone). On the advertisement side, each router applies split-horizon — it never advertises a route back to the neighbor that route is currently routed through — which is what keeps a two-router loop from bouncing a stale route back and forth and inflating its cost forever. The router also sends triggered updates immediately whenever its table actually changes, rather than waiting for the next periodic heartbeat, since in a real network waiting a full period before propagating a topology change is often the difference between fast and slow convergence after a link failure.
+  </p>
+
+  <h2>Reliable Transport</h2>
+  <figure>
+    <img src="figs/fig1-lab4-topology.svg" alt="Simplified network topology used for reliable transport testing">
+    <figcaption>Simulated topology for the reliable-transport lab: client A sends a file to client B through a single router that independently drops data and ACK packets with a configurable probability p, over links with 1-second latency each way.</figcaption>
+  </figure>
+  <p>
+    The last lab hands you a two-host network with a router in the middle that drops both data and acknowledgment packets independently at a configurable probability, and asks for a reliable, byte-for-byte correct file transfer over that link — implemented entirely at the application layer, with no compression and no threads. This was the most open-ended lab in the course: any protocol that gets the bytes across correctly is acceptable, but the assignment is graded on both correctness and performance (total transfer time and total bytes sent, including retransmissions), so a working-but-wasteful design and a genuinely efficient one score very differently.
+  </p>
+  <p>
+    I built a sliding-window sender with cumulative acknowledgments and selective-ack (SACK) ranges layered on top, so a single ACK can report both "everything up to sequence N has arrived" and "here are the specific out-of-order ranges I've already buffered," letting the sender avoid re-sending data the receiver already has after a loss event rather than falling back to a full go-back-N retransmission. Retransmission timing is adaptive rather than fixed: the retransmission timeout tracks a smoothed round-trip-time estimate and its variance (in the spirit of the classic Jacobson/Karels RTT estimator), so the timeout tightens up on a fast, low-loss path and backs off automatically as the measured RTT and its jitter increase — with a fast-retransmit path that reacts to repeated duplicate ACKs instead of waiting out a full timeout when the loss pattern makes that possible. The send window itself is tuned dynamically based on how much of the file has gone out and how the link is behaving, growing when transfers are progressing cleanly and shrinking after a timeout, with different growth/backoff behavior depending on whether the transfer is classified as a small, medium, or large flow — since a few-kilobyte file and a multi-megabyte file want different tradeoffs between window aggressiveness and retransmission cost. On the receive side, delayed and rate-limited ACK generation cuts down on redundant acknowledgment traffic for large transfers without slowing down small ones, where getting an ACK back immediately matters more than saving a few packets.
+  </p>
+
+  <h2>Skills demonstrated</h2>
+  <p>
+    Raw BSD sockets programming in C (TCP and UDP); HTTP/1.0 request/response parsing and generation from the wire format up; safe binary I/O (chunked reads/writes keyed off return values rather than null-terminated string functions); UDP request/reply patterns with application-level timeouts; distance-vector routing table computation, route poisoning, and split-horizon loop prevention; and a hand-built reliable transport protocol covering sliding-window flow control, cumulative and selective acknowledgments, adaptive RTO estimation, and fast retransmit — all evaluated against an autograder that measures both correctness and quantitative performance (transfer time and bytes sent) against baseline solutions.
+  </p>
+
+  <h2>Repo &amp; further reading</h2>
+  <p>
+    Implementation is in a private repository since these are active, reused Purdue course assignments: <a href="https://github.com/AK17111/Computer_Networks_ECE463" target="_blank" rel="noopener">github.com/AK17111/Computer_Networks_ECE463</a>. See <a href="../">all projects</a> for the rest of my write-ups.
+  </p>
+
+</article>
+
+<footer>
+  © <span id="year"></span> Armaan Kanchan. Built with plain HTML/CSS, hosted on GitHub Pages.
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
