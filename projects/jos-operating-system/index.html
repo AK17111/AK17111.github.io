@@ -36,7 +36,7 @@
 <article class="article">
 
   <div class="notice">
-    JOS is the operating system built across the lab sequence from MIT's <a href="https://pdos.csail.mit.edu/6.828/2018/overview.html" target="_blank" rel="noopener">6.828: Operating System Engineering</a>, which Purdue's OS course uses as its lab curriculum. I worked through Labs 1–5 with my lab partner, <strong>Anas A.</strong> (fellow Purdue student), pair-programming the whole way rather than splitting labs between us. Since these are live, reused course assignments, the repo stays <strong>private</strong> — this page describes the architecture and what I learned rather than walking through solution code.
+    JOS is the operating system built across the lab sequence from MIT's <a href="https://pdos.csail.mit.edu/6.828/2018/overview.html" target="_blank" rel="noopener">6.828: Operating System Engineering</a>, which Purdue's OS course uses as its lab curriculum. I worked through Labs 1–5 with my lab partner, <strong>Anas A.</strong> (fellow Purdue student). Since these are live, reused course assignments, the repo stays <strong>private</strong> — this page describes the architecture and what I learned rather than walking through solution code.
   </div>
 
   <h2>Overview</h2>
@@ -88,10 +88,6 @@
     Across the five labs, this project covers: x86 boot sequence and real-mode → protected-mode transition; physical/virtual memory management and page table permission bits; ELF loading and process/environment creation; trap, exception, and system call dispatch with IDT privilege levels; symmetric multiprocessing bootstrap and per-CPU state; locking and preemptive round-robin scheduling; copy-on-write fork; capability-free inter-process communication; and a disk-backed file system exposed through a Unix-like shell. All of it debugged directly against QEMU with GDB, working step by step from boot sector to shell.
   </p>
 
-  <h2>Contributions</h2>
-  <p>
-    This was pair work throughout with <strong>Anas A.</strong>, a fellow Purdue student — we worked through all five labs together rather than dividing them up, debugging and designing each part jointly.
-  </p>
 
   <h2>Repo &amp; further reading</h2>
   <p>
